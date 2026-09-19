@@ -703,15 +703,30 @@ function savePosts(posts){
     try { localStorage.setItem(STORE_KEY, JSON.stringify(posts)); } catch(e){}
 }
 
+/* ── 为一组帖子生成「确定且彼此不同」的时间戳：按 5 天范围内均匀分布 ── */
+function makeFixedTimes(count){
+    var arr = [], now = Date.now();
+    var span = 5 * 24 * 60 * 60 * 1000; // 5 天
+    for(var i = 0; i < count; i++){
+        // 每隔 (span/count) 一个时刻，再加点儿分钟偏移以避免整点
+        var step = Math.floor(span / (count + 1));
+        var minutes = (i * 47) % 60; // 0~59 分钟
+        arr.push(now - (step * (count - i)) - minutes * 60 * 1000);
+    }
+    return arr;
+}
+
 var posts = (function(){
     var loaded = loadPosts();
     if(loaded) {
-        loaded.forEach(function(p){ if(!p.createdAt) p.createdAt = randomPastTime(); });
+        var times = makeFixedTimes(loaded.length);
+        loaded.forEach(function(p, i){ if(!p.createdAt) p.createdAt = times[i]; });
         return loaded;
     }
-    return SEED_POSTS.map(function(p){
-        p.id = 'seed_'+Math.random().toString(36).slice(2);
-        p.createdAt = randomPastTime();
+    var times = makeFixedTimes(SEED_POSTS.length);
+    return SEED_POSTS.map(function(p, i){
+        p.id = 'seed_'+(i+1);
+        p.createdAt = times[i];
         return p;
     });
 })();
@@ -722,14 +737,6 @@ function nowStr(){
     return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
 }
 
-/* ── 生成「几天前」的随机时间戳（默认 1~5 天前，整点时刻）── */
-function randomPastTime(daysBack){
-    if(daysBack==null) daysBack = 5;
-    var d = new Date();
-    d.setDate(d.getDate() - (1 + Math.floor(Math.random()*daysBack)));
-    d.setHours(Math.floor(Math.random()*24), Math.floor(Math.random()*60), 0, 0);
-    return d.getTime();
-}
 function formatTime(ts){
     var d = new Date(ts);
     function p(n){ return (n<10?'0':'')+n; }
