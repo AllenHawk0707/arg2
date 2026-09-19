@@ -703,12 +703,44 @@ function savePosts(posts){
     try { localStorage.setItem(STORE_KEY, JSON.stringify(posts)); } catch(e){}
 }
 
-var posts = loadPosts() || SEED_POSTS.map(function(p){ p.id = 'seed_'+Math.random().toString(36).slice(2); return p; });
+var posts = (function(){
+    var loaded = loadPosts();
+    if(loaded) {
+        loaded.forEach(function(p){ if(!p.createdAt) p.createdAt = randomPastTime(); });
+        return loaded;
+    }
+    return SEED_POSTS.map(function(p){
+        p.id = 'seed_'+Math.random().toString(36).slice(2);
+        p.createdAt = randomPastTime();
+        return p;
+    });
+})();
 
 function nowStr(){
     var d = new Date();
     function p(n){ return (n<10?'0':'')+n; }
     return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+
+/* ── 生成「几天前」的随机时间戳（默认 1~5 天前，整点时刻）── */
+function randomPastTime(daysBack){
+    if(daysBack==null) daysBack = 5;
+    var d = new Date();
+    d.setDate(d.getDate() - (1 + Math.floor(Math.random()*daysBack)));
+    d.setHours(Math.floor(Math.random()*24), Math.floor(Math.random()*60), 0, 0);
+    return d.getTime();
+}
+function formatTime(ts){
+    var d = new Date(ts);
+    function p(n){ return (n<10?'0':'')+n; }
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function relativeTime(ts){
+    var diff = Math.floor((Date.now()-ts)/60000);
+    if(diff<1) return '刚刚';
+    if(diff<60) return diff+' 分钟前';
+    if(diff<1440) return Math.floor(diff/60)+' 小时前';
+    return Math.floor(diff/1440)+' 天前';
 }
 
 var currentFilter = 'all';
@@ -735,7 +767,7 @@ function renderWall(){
                 avatarHtml(p.avatar)+
                 '<span class="post-name">'+escapeHtml(p.name)+'</span>'+
                 '<span class="'+tagCls+'">'+TAG_LABEL[p.tag]+'</span>'+
-                '<span style="margin-left:auto;">🕒 '+nowStr()+'</span>'+
+                '<span style="margin-left:auto;">🕒 '+formatTime(p.createdAt)+' · '+relativeTime(p.createdAt)+'</span>'+
             '</div>'+
             '<div class="post-title-bar">'+escapeHtml(p.title)+'</div>'+
             '<div class="post-content-body">'+escapeHtml(p.content)+'</div>'+
