@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大同中学墙墙</title>
     <style>
+        /* ══ Windows 10 Fluent ══ */
+        :root {
+            --accent: #0078d7;
+            --accent-d: #0063b1;
+            --accent-l: #cce4f7;
+            --bg: #f2f2f2;
+            --surface: #ffffff;
+            --surface-2: #fafafa;
+            --border: #d2d2d2;
+            --border-2: #e5e5e5;
+            --ink: #1f1f1f;
+            --ink-2: #555555;
+            --ink-3: #8a8a8a;
+            --sans: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,233 +28,268 @@
         }
 
         body {
-            font-family: Tahoma, "宋体", SimSun, sans-serif;
-            font-size: 12px;
-            background-color: #ece9d8;
-            color: #000;
-            margin: 0;
-            padding: 46px;
+            font-family: var(--sans);
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--ink);
+            background-color: var(--bg);
+            margin: 0 auto;
+            padding: 24px 16px 48px;
+            max-width: 920px;
             min-height: 100vh;
         }
 
+        /* ── 标题栏 ── */
         .xp-window {
-            background-color: #0054e3;
-            color: #fff;
-            padding: 4px 6px;
-            font-weight: bold;
-            font-size: 13px;
-            border: 2px solid #0055ea;
-            border-bottom: none;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
+            height: 32px;
+            padding: 0 0 0 12px;
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            color: var(--ink);
         }
 
         .window-title {
             display: flex;
             align-items: center;
-            gap: 5px;
-        }
-
-        .window-icon {
-            width: 16px;
-            height: 16px;
-            background-color: #ffcc00;
-            border: 1px solid #000;
+            gap: 9px;
+            font-size: 12px;
+            font-weight: 400;
         }
 
         .window-buttons {
             display: flex;
-            gap: 2px;
+            align-self: stretch;
         }
 
         .window-btn {
-            width: 21px;
-            height: 21px;
-            background-color: #316ac5;
-            border: 1px solid #0054e3;
-            color: #fff;
-            font-weight: bold;
+            width: 45px;
+            height: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--sans);
+            font-size: 10px;
+            color: var(--ink-2);
+            background: transparent;
+            border: none;
             cursor: pointer;
-            text-align: center;
-            line-height: 19px;
-            font-size: 14px;
         }
 
-        .window-btn:hover {
-            background-color: #4a90e2;
-        }
+        .window-btn:hover { background-color: #e5e5e5; }
+        .window-btn:last-child:hover { background-color: #e81123; color: #fff; }
 
+        /* ── 主面板 ── */
         .main-content {
-            background-color: #fff;
-            border: 2px solid #0055ea;
+            background-color: var(--surface);
+            border: 1px solid var(--border);
             border-top: none;
             min-height: 600px;
-            padding: 10px;
+            padding: 0 0 1px;
         }
 
+        /* 工具栏 */
         .toolbar {
-            background-color: #ece9d8;
-            border: 1px solid #aca899;
-            padding: 4px;
-            margin-bottom: 10px;
             display: flex;
-            gap: 4px;
+            gap: 0;
             flex-wrap: wrap;
+            align-items: stretch;
+            background-color: var(--surface-2);
+            border-bottom: 1px solid var(--border-2);
+            padding: 0 8px;
         }
 
         .toolbar-btn {
-            padding: 4px 12px;
-            background-color: #f5f5f5;
-            border: 1px solid #aca899;
-            border-right: 1px solid #fff;
-            border-bottom: 1px solid #fff;
+            padding: 11px 16px;
+            font-family: var(--sans);
+            font-size: 13px;
+            color: var(--ink-2);
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
             cursor: pointer;
-            font-family: Tahoma, sans-serif;
-            font-size: 11px;
-            min-width: 80px;
-            text-align: center;
         }
 
         .toolbar-btn:hover {
-            background-color: #316ac5;
-            color: #fff;
-            border: 1px solid #00218c;
+            color: var(--ink);
+            background-color: #f0f0f0;
         }
 
         .toolbar-btn.active {
-            background-color: #316ac5;
-            color: #fff;
-            border: 1px solid #00218c;
-            border-right: 1px solid #0a246a;
-            border-bottom: 1px solid #0a246a;
+            color: var(--accent);
+            font-weight: 600;
+            border-bottom-color: var(--accent);
         }
 
         .content-area {
-            background-color: #fff;
-            border: 1px inset #808080;
-            padding: 15px;
+            background-color: var(--surface);
+            border: none;
+            padding: 14px 16px;
             min-height: 460px;
         }
 
         .wall-meta {
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 10px;
-            border-bottom: 1px dashed #ccc;
-            padding-bottom: 6px;
+            font-size: 12px;
+            color: var(--ink-3);
+            padding-bottom: 10px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid var(--border-2);
         }
 
-        /* 闲聊墙帖子卡片（沿用 logs 的 forum-post-style 语言） */
+        /* ── 帖子卡片 ── */
         .wall-post {
-            background-color: #f5f5f5;
-            border: 1px solid #ccc;
+            background-color: var(--surface);
+            border: 1px solid var(--border-2);
             margin: 10px 0;
-            box-shadow: 1px 1px 0 #fff inset;
+            box-shadow: none;
         }
+        .wall-post:hover { border-color: var(--border); }
 
         .post-info-bar {
-            background-color: #e8eef7;
-            padding: 5px 10px;
-            font-size: 11px;
-            color: #666;
-            border-bottom: 1px solid #ccc;
             display: flex;
             align-items: center;
             gap: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--ink-3);
+            background-color: var(--surface-2);
+            border-bottom: 1px solid var(--border-2);
         }
 
         .post-avatar {
-            width: 22px;
-            height: 22px;
-            background-color: #ccc;
-            border: 1px outset #fff;
+            width: 26px;
+            height: 26px;
+            flex: none;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
+            font-size: 13px;
+            line-height: 1;
+            color: #fff;
+            background-color: var(--accent);
+            border: none;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+
+        /* 默认小人头像（无自定义头像时） */
+        .post-avatar.is-default {
+            background-color: #b8b8b8;
+        }
+        .post-avatar svg {
+            width: 70%;
+            height: 70%;
+            display: block;
+            fill: #fff;
         }
 
         .post-name {
-            font-weight: bold;
-            color: #00008b;
+            font-weight: 600;
+            color: var(--accent);
         }
 
         .post-tag {
-            background-color: #ffffcc;
-            border: 1px solid #cccc99;
-            padding: 0 5px;
-            font-size: 10px;
+            padding: 1px 8px;
+            font-size: 11px;
+            color: var(--ink-2);
+            background-color: #f0f0f0;
+            border: 1px solid var(--border-2);
         }
 
-        .post-tag.hot { background-color: #ffe0e0; border-color: #d9a0a0; color: #a00; }
-        .post-tag.tree { background-color: #e8f5e8; border-color: #a8c8a8; color: #2a7a2a; }
+        .post-tag.hot { color: #b0344f; background-color: #fdeef1; border-color: #f4ccd6; }
+        .post-tag.tree { color: #2c7a52; background-color: #eaf7f0; border-color: #bfe3d0; }
 
         .post-title-bar {
-            padding: 8px 10px;
-            font-weight: bold;
-            font-size: 12px;
-            background-color: #fff;
-            border-bottom: 1px solid #eee;
+            padding: 11px 12px 3px;
+            font-size: 15px;
+            font-weight: 600;
+            background-color: transparent;
+            border: none;
         }
 
         .post-content-body {
-            padding: 10px;
-            font-size: 12px;
-            line-height: 1.8;
-            color: #444;
+            padding: 0 12px 11px;
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--ink-2);
             white-space: pre-wrap;
             word-break: break-word;
         }
 
         .post-actions {
-            padding: 6px 10px;
-            border-top: 1px dashed #ccc;
-            font-size: 11px;
-            color: #555;
             display: flex;
-            gap: 14px;
             align-items: center;
+            gap: 16px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--ink-3);
+            border-top: 1px solid var(--border-2);
         }
 
-        .post-actions span { cursor: pointer; user-select: none; }
-        .post-actions span:hover { color: #316ac5; }
-        .post-actions .liked { color: #c0392b; font-weight: bold; }
+        .post-actions span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .post-actions span:hover { color: var(--accent); background-color: var(--accent-l); }
+        .post-actions .liked { color: #b0344f; font-weight: 600; }
 
         .reply-box {
-            margin: 6px 10px 10px 10px;
-            border-top: 1px dashed #ddd;
-            padding-top: 8px;
+            margin: 0;
+            padding: 10px 12px 12px;
+            border-top: 1px solid var(--border-2);
+            background-color: var(--surface-2);
             display: none;
         }
         .reply-box.open { display: block; }
+
         .reply-item {
-            font-size: 11px;
-            color: #555;
+            font-size: 12.5px;
+            color: var(--ink-2);
             padding: 4px 0;
-            border-bottom: 1px dotted #eee;
+            border-bottom: 1px solid var(--border-2);
         }
-        .reply-item b { color: #00008b; }
+        .reply-item:last-of-type { border-bottom: none; }
+        .reply-item b { color: var(--accent); }
+
         .reply-input {
-            width: calc(100% - 70px);
-            border: 2px inset #808080;
-            padding: 3px 6px;
-            font-family: Tahoma, sans-serif;
-            font-size: 12px;
+            width: calc(100% - 76px);
+            padding: 6px 10px;
+            font-family: var(--sans);
+            font-size: 12.5px;
+            color: var(--ink);
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            outline: none;
         }
+        .reply-input::placeholder { color: var(--ink-3); }
+        .reply-input:focus { border-color: var(--accent); border-width: 2px; padding: 5px 9px; }
+
         .reply-send {
-            padding: 3px 12px;
-            background-color: #e1e1e1;
-            border: 2px outset #fff;
+            margin-left: 6px;
+            padding: 6px 18px;
+            font-family: var(--sans);
+            font-size: 12.5px;
+            color: #fff;
+            background-color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 0;
             cursor: pointer;
-            font-family: Tahoma, sans-serif;
-            font-size: 11px;
         }
-        .reply-send:hover { background-color: #316ac5; color: #fff; }
+        .reply-send:hover { background-color: var(--accent-d); border-color: var(--accent-d); }
 
         /* 涂黑文字 */
         .redacted-password {
-            background-color: #000;
+            background-color: var(--ink);
             color: transparent;
             display: inline-block;
             padding: 0 6px;
@@ -250,77 +301,61 @@
         }
 
         .statusbar {
-            background-color: #ece9d8;
-            border-top: 1px solid #fff;
-            padding: 4px 8px;
-            font-size: 11px;
-            color: #333;
             display: flex;
             justify-content: space-between;
-            margin-top: 10px;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 0;
+            padding: 7px 16px;
+            font-size: 11.5px;
+            color: var(--ink-3);
+            background-color: var(--surface-2);
+            border-top: 1px solid var(--border-2);
         }
 
-        /* ── CRT 老式电脑特效 ── */
-        html { filter: saturate(0.5) contrast(0.9) blur(0.3px); }
-        #crt-noise {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 9998; opacity: 0.22;
-            mix-blend-mode: screen; image-rendering: pixelated;
-        }
-        #crt-flash {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 9997; background: transparent;
-            transition: background 0.05s;
-        }
-        #monitor-frame {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            pointer-events: none; z-index: 10000; box-sizing: border-box;
-            border: 46px solid #262626; border-radius: 26px; background: transparent;
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), inset 0 0 0 3px #151515,
-                inset 0 0 0 5px #343434, inset 0 0 0 6px #111, 0 0 0 4px #1c1c1c,
-                0 0 0 6px #363636, 0 0 0 8px #131313, 0 0 60px rgba(0,0,0,0.7);
-        }
-        #monitor-frame::before {
-            content: '大同';
-            position: fixed; bottom: 11px; left: 50%; transform: translateX(-50%);
-            color: #3d3d3d; font-size: 11px; font-family: "宋体", SimSun, serif;
-            letter-spacing: 8px; z-index: 10001; pointer-events: none;
-        }
-        #monitor-frame::after {
-            content: ''; position: fixed; bottom: 14px; right: 84px;
-            width: 6px; height: 6px; background: #3f3; border-radius: 50%;
-            box-shadow: 0 0 8px #3f3, 0 0 16px #3f3; z-index: 10001;
-        }
+        /* ── 电源开关 ── */
         #power-btn {
-            position: fixed; bottom: 7px; right: 18px; z-index: 10001;
-            pointer-events: auto; cursor: pointer;
-            background: linear-gradient(180deg, #3d3d3d, #1e1e1e); color: #777;
-            border: 1px solid #151515; border-top-color: #444; border-left-color: #3a3a3a;
-            padding: 4px 16px; font-family: "宋体", SimSun, serif; font-size: 11px;
-            letter-spacing: 3px; border-radius: 3px; user-select: none; text-align: center;
-            box-shadow: 0 1px 0 rgba(255,255,255,0.04);
+            position: fixed; bottom: 16px; right: 16px; z-index: 10001;
+            padding: 6px 18px;
+            font-family: var(--sans); font-size: 12.5px;
+            color: var(--ink);
+            background-color: #e1e1e1;
+            border: 1px solid var(--border);
+            border-radius: 0;
+            cursor: pointer; user-select: none;
         }
-        #power-btn:hover { color: #bbb; background: linear-gradient(180deg, #4a4a4a, #282828); }
-        #power-btn:active { background: linear-gradient(180deg, #1a1a1a, #2a2a2a); color: #555; box-shadow: none; transform: translateY(1px); }
+        #power-btn:hover { background-color: #d6d6d6; }
+        #power-btn:active { background-color: #cccccc; }
+
         #power-off {
             position: fixed; inset: 0; background: #000; z-index: 11000;
             display: none; align-items: center; justify-content: center;
-            color: #2a2a2a; font-size: 13px; letter-spacing: 4px; font-family: "宋体",serif;
+            color: #4a4a4a; font-size: 13px; letter-spacing: 4px;
+            font-family: var(--sans);
         }
         #power-off.on { display: flex; }
+
+        /* ── 响应式 ── */
+        @media (max-width: 640px) {
+            body { padding: 12px 8px 44px; }
+            .xp-window { padding-left: 10px; }
+            .window-btn { width: 38px; }
+            .toolbar { padding: 0 4px; }
+            .toolbar-btn { padding: 10px 12px; font-size: 12.5px; }
+            .content-area { padding: 12px; }
+            .reply-input { width: 100%; }
+            .reply-send { width: 100%; margin: 8px 0 0; }
+            #power-btn { bottom: 12px; right: 12px; }
+        }
     </style>
 </head>
 <body>
 
-<canvas id="crt-noise"></canvas>
-<div id="crt-flash"></div>
-<div id="monitor-frame"></div>
 <div id="power-btn" onclick="togglePower()">关闭</div>
 <div id="power-off">●  显示器已关闭 — 点击任意处开机</div>
 
 <div class="xp-window">
     <div class="window-title">
-        <div class="window-icon"></div>
         <span class="mode-label">大同中学墙墙 v1.0</span>
     </div>
     <div class="window-buttons">
@@ -378,7 +413,7 @@ var SEED_POSTS = [
       likes:2, replies:[{n:'zrt',t:'听说现在被当成走班教室了 \n 不知道你的东西还在不在'}] },
     { name:' 晨间曦光', tag:'chat', avatar:'', title:'怎么没人',
       content:'人好少啊 是不是墙刚开 看看明天会不会更新',
-      likes:1, replies:[] }
+      likes:1, replies:[] },
     { name:' XYW', tag:'chat', avatar:'', title:'上学好累啊',
       content:'什么时候能放学？',
       likes:1, replies:[{n:'语嫣红',t:'明天还要调休····'}] }
@@ -427,7 +462,7 @@ function renderWall(){
         html +=
         '<div class="wall-post" data-id="'+p.id+'">'+
             '<div class="post-info-bar">'+
-                '<span class="post-avatar">'+p.avatar+'</span>'+
+                avatarHtml(p.avatar)+
                 '<span class="post-name">'+escapeHtml(p.name)+'</span>'+
                 '<span class="'+tagCls+'">'+TAG_LABEL[p.tag]+'</span>'+
                 '<span style="margin-left:auto;">🕒 '+nowStr()+'</span>'+
@@ -456,6 +491,17 @@ function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, function(c){
         return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
+}
+
+/* 头像：统一使用默认小人图标 */
+var DEFAULT_AVATAR_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true">'+
+    '<circle cx="12" cy="8" r="4"/>'+
+    '<path d="M12 14c-4.4 0-8 2.7-8 6v1h16v-1c0-3.3-3.6-6-8-6z"/>'+
+    '</svg>';
+
+function avatarHtml(){
+    return '<span class="post-avatar is-default">'+DEFAULT_AVATAR_SVG+'</span>';
 }
 
 function likePost(id, el){
@@ -520,46 +566,6 @@ document.addEventListener('DOMContentLoaded', function(){
         el.style.width=w+'px'; el.style.minWidth=w+'px';
     });
 });
-</script>
-
-<!-- ── CRT 雪花屏噪点 + 间歇闪屏（沿用 logs 特效）── -->
-<script>
-(function(){
-    var cv=document.getElementById('crt-noise');
-    var cx=cv.getContext('2d');
-    var w,h,sw,sh,imgData,data;
-    function resize(){
-        w=cv.width=window.innerWidth; h=cv.height=window.innerHeight;
-        sw=Math.ceil(w/4); sh=Math.ceil(h/4);
-        imgData=cx.createImageData(sw,sh); data=imgData.data;
-    }
-    resize(); window.addEventListener('resize',resize);
-    function noise(){
-        for(var i=0;i<data.length;i+=4){
-            var v=Math.random()<0.13?200+Math.random()*55:0;
-            data[i]=v; data[i+1]=v; data[i+2]=v; data[i+3]=255;
-        }
-        cx.putImageData(imgData,0,0);
-        cx.drawImage(cv,0,0,sw,sh,0,0,w,h);
-        cx.fillStyle='rgba(0,0,0,0.16)';
-        for(var y=0;y<sh;y+=4) cx.fillRect(0,y*(h/sh),w,2*(h/sh));
-        if(Math.random()<0.04){
-            cx.fillStyle='rgba(255,255,255,'+(0.04+Math.random()*0.08)+')';
-            cx.fillRect(0,Math.floor(Math.random()*h),w,1+Math.random()*3);
-        }
-        requestAnimationFrame(noise);
-    }
-    noise();
-    var flash=document.getElementById('crt-flash');
-    function scheduleFlash(){
-        var delay=3000+Math.random()*15000;
-        setTimeout(function(){
-            flash.style.background='rgba(255,255,255,'+(0.06+Math.random()*0.15)+')';
-            setTimeout(function(){ flash.style.background='transparent'; scheduleFlash(); },40+Math.random()*60);
-        },delay);
-    }
-    scheduleFlash();
-})();
 </script>
 
 </body>
