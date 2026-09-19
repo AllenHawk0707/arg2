@@ -598,12 +598,29 @@ var SEED_POSTS = [
       likes:1, replies:[{n:'语嫣红',t:'明天还要调休····'}] },
     { name:' JiangJiang', tag:'chat', avatar:'', title:'来单挑',
       content:'YXH来打架 \n我打架可厉害了',
-      likes:2, replies:[{n:'沐阳',t:'怎么欺负同学呢'},{n:'SRZ',t:'这人魔了 \n。。。。。'}] }
+      likes:2, replies:[{n:'沐阳',t:'怎么欺负同学呢'},{n:'SRZ',t:'这人魔了 \n。。。。。'}] },
+    { name:'苏打水', tag:'chat', avatar:'', title:'晚自习突然停电',
+      content:'全班欢呼了三秒\n然后班主任举着手电筒出现在后门',
+      likes:31, replies:[{n:'Luna',t:'我们班直接点蜡烛了 跟开追悼会似的'},{n:'小鹿',t:'欢呼那三秒是青春'}] },
+    { name:'MO墨', tag:'chat', avatar:'', title:'跑操被广播点名了',
+      content:'系鞋带掉队 被广播念了名字\n半个操场的人都朝我看 社死现场',
+      likes:12, replies:[{n:'阿宇',t:'哈哈哈哈我上周才被点过 名字都念错了'},{n:'Felix',t:'下次鞋带拴紧点 兄弟'}] },
+    { name:'雨天不打伞', tag:'tree', avatar:'', title:'月考还有一周 书还是新的',
+      content:'每年都立flag每年都倒\n今年想挣扎一下 有同款的吗',
+      likes:56, replies:[{n:'Cindy',t:'挣扎的第一步是现在合上手机'},{n:'老周',t:'同款flag 又立起来了'},{n:'Ryan',t:'加油 还来得及'}] },
+    { name:'椰果', tag:'lost', avatar:'', title:'操场看台捡到黑色保温杯',
+      content:'上面贴了个篮球贴纸\n失主速来认领 放假就没人了',
+      likes:8, replies:[{n:'Hugo',t:'好像是我们班的 谁的杯子快去认领'},{n:'小唐',t:'贴纸是不是金色三分王那个'}] },
+    { name:'胡思乱想', tag:'love', avatar:'', title:'自习室最后一个走的男生',
+      content:'今天我走的时候他帮我把灯关了\n就 心动了一下 不多',
+      likes:74, replies:[{n:'Yuki',t:'细节控心动实录'},{n:'大壮',t:'这位同学我认识 要不要帮忙递个纸条'}] }
 ];
 
 var TAG_LABEL = { chat:'日常闲聊', love:'表白墙', tree:'树洞', lost:'失物招领' };
 var STORE_KEY = 'xyzh_wall_posts_v2';
 var USER_KEY = 'xyzh_wall_user_v1';
+// 改 SEED_POSTS 后把下面这个数字 +1，页面会自动丢弃旧缓存、改用 HTML 里的新帖子
+var SEED_VERSION = 6;
 
 /* ══ 账号（本地保存，仅当前浏览器有效）══ */
 function loadUser(){
@@ -698,12 +715,16 @@ function requireLogin(){
 function loadPosts(){
     try {
         var raw = localStorage.getItem(STORE_KEY);
-        if(raw) return JSON.parse(raw);
+        if(raw){
+            var data = JSON.parse(raw);
+            // 旧格式（纯数组）或版本不符 → 视为失效，回退到 HTML 的 SEED_POSTS
+            if(data && data._v === SEED_VERSION && Array.isArray(data.posts)) return data.posts;
+        }
     } catch(e){}
     return null;
 }
 function savePosts(posts){
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(posts)); } catch(e){}
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ _v: SEED_VERSION, posts: posts })); } catch(e){}
 }
 
 /* ── 为一组帖子生成「确定且彼此不同」的时间戳：按 5 天范围内均匀分布 ── */
