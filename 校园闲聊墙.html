@@ -335,11 +335,168 @@
         }
         #power-off.on { display: flex; }
 
+        /* ── 用户区（标题栏右侧）── */
+        .window-buttons { margin-left: auto; }
+
+        .user-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-right: 8px;
+            font-size: 12.5px;
+            color: var(--ink-2);
+        }
+
+        .user-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            background-color: var(--accent-l);
+            color: var(--accent-d);
+            border: 1px solid #a9d2f0;
+            font-weight: 600;
+            max-width: 180px;
+        }
+
+        .user-chip .dot {
+            width: 7px;
+            height: 7px;
+            flex: none;
+            border-radius: 50%;
+            background-color: #107c10;
+        }
+
+        .user-chip .uid {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .user-link {
+            padding: 3px 8px;
+            font-family: var(--sans);
+            font-size: 12.5px;
+            color: var(--ink-2);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        .user-link:hover { color: var(--accent); text-decoration: underline; }
+
+        /* ── 登录弹窗 ── */
+        .modal-mask {
+            position: fixed; inset: 0; z-index: 12000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, .45);
+        }
+        .modal-mask.on { display: flex; }
+
+        .modal {
+            width: 100%;
+            max-width: 360px;
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+        }
+
+        .modal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 36px;
+            padding: 0 6px 0 14px;
+            border-bottom: 1px solid var(--border-2);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 34px; height: 30px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 11px;
+            color: var(--ink-2);
+            background: transparent; border: none; cursor: pointer;
+        }
+        .modal-close:hover { background-color: #e81123; color: #fff; }
+
+        .modal-body { padding: 18px 16px 8px; }
+
+        .modal-desc {
+            font-size: 12.5px;
+            color: var(--ink-3);
+            margin-bottom: 14px;
+            line-height: 1.6;
+        }
+
+        .modal-label {
+            display: block;
+            font-size: 12.5px;
+            color: var(--ink-2);
+            margin-bottom: 6px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 8px 10px;
+            font-family: var(--sans);
+            font-size: 13.5px;
+            color: var(--ink);
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            outline: none;
+        }
+        .modal-input::placeholder { color: var(--ink-3); }
+        .modal-input:focus { border-color: var(--accent); border-width: 2px; padding: 7px 9px; }
+
+        .modal-error {
+            min-height: 18px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #c42b1c;
+        }
+
+        .modal-foot {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 12px 16px 16px;
+        }
+
+        .mbtn {
+            padding: 7px 20px;
+            font-family: var(--sans);
+            font-size: 13px;
+            border: 1px solid var(--border);
+            background-color: #e1e1e1;
+            color: var(--ink);
+            cursor: pointer;
+        }
+        .mbtn:hover { background-color: #d6d6d6; }
+
+        .mbtn.primary {
+            color: #fff;
+            background-color: var(--accent);
+            border-color: var(--accent);
+        }
+        .mbtn.primary:hover { background-color: var(--accent-d); border-color: var(--accent-d); }
+
+        .mbtn.danger {
+            color: #a4262c;
+            border-color: #e0aeb1;
+            background-color: #fdf3f4;
+        }
+        .mbtn.danger:hover { background-color: #fbe6e8; }
+
         /* ── 响应式 ── */
         @media (max-width: 640px) {
             body { padding: 12px 8px 44px; }
             .xp-window { padding-left: 10px; }
             .window-btn { width: 38px; }
+            .user-chip { max-width: 110px; }
             .toolbar { padding: 0 4px; }
             .toolbar-btn { padding: 10px 12px; font-size: 12.5px; }
             .content-area { padding: 12px; }
@@ -359,9 +516,31 @@
         <span class="mode-label">大同中学墙墙 v1.0</span>
     </div>
     <div class="window-buttons">
+        <div class="user-area" id="user-area"></div>
         <div class="window-btn">_</div>
         <div class="window-btn">□</div>
         <div class="window-btn" onclick="togglePower()" style="cursor:pointer;">×</div>
+    </div>
+</div>
+
+<!-- ── 登录 / 注册弹窗 ── -->
+<div class="modal-mask" id="login-mask">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+        <div class="modal-head">
+            <span id="login-title">登录墙墙</span>
+            <button class="modal-close" type="button" onclick="closeLogin()">✕</button>
+        </div>
+        <div class="modal-body">
+            <p class="modal-desc" id="login-desc">输入你的 ID 即可进入墙墙。ID 会显示在右上角，并以你的名义发布留言和评论。</p>
+            <label class="modal-label" for="login-input">你的 ID</label>
+            <input class="modal-input" id="login-input" type="text" maxlength="16"
+                   placeholder="2-16 个字符，如 高二3班小苏" autocomplete="off">
+            <div class="modal-error" id="login-error"></div>
+        </div>
+        <div class="modal-foot">
+            <button class="mbtn" type="button" onclick="closeLogin()">取消</button>
+            <button class="mbtn primary" type="button" id="login-submit" onclick="submitLogin()">进入</button>
+        </div>
     </div>
 </div>
 
@@ -421,6 +600,97 @@ var SEED_POSTS = [
 
 var TAG_LABEL = { chat:'日常闲聊', love:'表白墙', tree:'树洞', lost:'失物招领' };
 var STORE_KEY = 'xyzh_wall_posts_v2';
+var USER_KEY = 'xyzh_wall_user_v1';
+
+/* ══ 账号（本地保存，仅当前浏览器有效）══ */
+function loadUser(){
+    try {
+        var raw = localStorage.getItem(USER_KEY);
+        if(!raw) return null;
+        var u = JSON.parse(raw);
+        return (u && u.id) ? u : null;
+    } catch(e){ return null; }
+}
+function saveUser(u){
+    try {
+        if(u) localStorage.setItem(USER_KEY, JSON.stringify(u));
+        else localStorage.removeItem(USER_KEY);
+    } catch(e){}
+}
+
+var currentUser = loadUser();
+
+function isLoggedIn(){ return !!(currentUser && currentUser.id); }
+
+function renderUserArea(){
+    var el = document.getElementById('user-area');
+    if(!el) return;
+    if(isLoggedIn()){
+        el.innerHTML =
+            '<span class="user-chip"><span class="dot"></span>'+
+                '<span class="uid">'+escapeHtml(currentUser.id)+'</span></span>'+
+            '<button class="user-link" type="button" onclick="doLogout()">退出</button>';
+    } else {
+        el.innerHTML = '<button class="user-link" type="button" onclick="openLogin()">登录 / 注册</button>';
+    }
+}
+
+function openLogin(){
+    var mask = document.getElementById('login-mask');
+    var inp = document.getElementById('login-input');
+    var err = document.getElementById('login-error');
+    var btn = document.getElementById('login-submit');
+    var title = document.getElementById('login-title');
+    if(!mask) return;
+    err.textContent = '';
+    inp.value = isLoggedIn() ? currentUser.id : '';
+    title.textContent = isLoggedIn() ? '修改 ID' : '登录墙墙';
+    btn.textContent = isLoggedIn() ? '保存' : '进入';
+    mask.classList.add('on');
+    setTimeout(function(){ inp.focus(); inp.select(); }, 30);
+}
+
+function closeLogin(){
+    var mask = document.getElementById('login-mask');
+    if(mask) mask.classList.remove('on');
+}
+
+function submitLogin(){
+    var inp = document.getElementById('login-input');
+    var err = document.getElementById('login-error');
+    var id = (inp.value || '').trim().replace(/\s+/g, ' ');
+
+    if(!id){ err.textContent = '请输入你的 ID。'; inp.focus(); return; }
+    if(id.length < 2){ err.textContent = 'ID 至少 2 个字符。'; inp.focus(); return; }
+    if(id.length > 16){ err.textContent = 'ID 最多 16 个字符。'; inp.focus(); return; }
+    if(!/^[\w\u4e00-\u9fa5（）()·\-\s]+$/.test(id)){
+        err.textContent = 'ID 只能包含中英文、数字、空格和常用符号。';
+        inp.focus(); return;
+    }
+
+    currentUser = { id: id, since: (currentUser && currentUser.since) || nowStr() };
+    saveUser(currentUser);
+    renderUserArea();
+    closeLogin();
+    setStatus('已登录：' + id);
+}
+
+function doLogout(){
+    if(!confirm('确定要退出登录吗？')) return;
+    currentUser = null;
+    saveUser(null);
+    renderUserArea();
+    setStatus('已退出登录');
+}
+
+/* 未登录时拦下操作，弹出登录框 */
+function requireLogin(){
+    if(isLoggedIn()) return true;
+    var err = document.getElementById('login-error');
+    openLogin();
+    if(err) err.textContent = '请先输入 ID 登录后再发言。';
+    return false;
+}
 
 function loadPosts(){
     try {
@@ -522,17 +792,19 @@ function toggleReply(id){
 }
 
 function addReply(id){
+    if(!requireLogin()) return;
     var inp = document.getElementById('ri_'+id);
     var t = inp.value.trim();
     if(!t) return;
     for(var i=0;i<posts.length;i++){
         if(posts[i].id===id){
             if(!posts[i].replies) posts[i].replies=[];
-            posts[i].replies.push({n:'我', t:t});
+            posts[i].replies.push({n: currentUser.id, t:t});
             savePosts(posts);
             break;
         }
     }
+    setStatus('已以 ' + currentUser.id + ' 的身份发表评论');
     renderWall();
 }
 
@@ -555,7 +827,17 @@ document.getElementById('power-off').addEventListener('click', function(){
 
 document.getElementById('now-date').textContent = nowStr().slice(0,10);
 
+renderUserArea();
 renderWall();
+
+/* 登录弹窗交互：回车提交、ESC 关闭、点遮罩关闭 */
+document.getElementById('login-input').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); submitLogin(); }
+    if(e.key === 'Escape'){ closeLogin(); }
+});
+document.getElementById('login-mask').addEventListener('click', function(e){
+    if(e.target === this) closeLogin();
+});
 
 /* ── 涂黑文字块：用宽度遮住原文字 ── */
 document.addEventListener('DOMContentLoaded', function(){
