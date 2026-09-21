@@ -688,7 +688,7 @@ function sbRequest(method, path, body){
 }
 function sbQuery(){
     return Promise.all([
-        sbRequest('GET', '/rest/v1/posts?select=*&order=posted_at.desc&limit=100'),
+        sbRequest('GET', '/rest/v1/posts?select=*&approved=eq.true&order=posted_at.desc&limit=100'),
         sbRequest('GET', '/rest/v1/replies?select=*&order=created_at.asc&limit=1000')
     ]).then(function(res){
         var replyRows = res[1] || [];
@@ -741,6 +741,7 @@ function sbNewPost(p){
     });
 }
 var cloudSnapshot = '';
+var seedTried = false; // 防止审核机制下（帖子全部待审核时）反复重新播种
 function refreshCloud(silent){
     if(!SB_READY) return Promise.resolve();
     // 用户正在输入或展开回复框时跳过本轮，避免打断
@@ -748,7 +749,7 @@ function refreshCloud(silent){
                (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName));
     if(busy && cloudSnapshot) return Promise.resolve();
     return sbQuery().then(function(list){
-        if(!list.length) return sbSeed().then(function(){ return sbQuery(); });
+        if(!list.length && !seedTried){ seedTried = true; return sbSeed().then(function(){ return sbQuery(); }); }
         return list;
     }).then(function(list){
         if(list && list.length){
@@ -1073,7 +1074,7 @@ function submitPost(){
     if(SB_READY){
         sbNewPost(post).then(function(){
             closePost();
-            setStatus('发布成功');
+            setStatus('发布成功，待管理员审核通过后展示');
             return refreshCloud(false);
         }).catch(function(){ err.textContent = '发布失败，请稍后再试。'; });
     } else {
