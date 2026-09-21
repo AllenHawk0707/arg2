@@ -659,82 +659,96 @@ var USER_KEY = 'xyzh_wall_user_v1';
 // 改 SEED_POSTS 后把下面这个数字 +1，页面会自动丢弃旧缓存、改用 HTML 里的新帖子
 var SEED_VERSION = 6;
 
-/* ══ LeanCloud 云端同步（让所有访客看到同一份留言）══
-   1. 到 https://console.leancloud.app 注册（选「国际版」；国内版要求已备案域名，GitHub Pages 用不了）
-   2. 创建应用 →「设置 → 应用凭证」→ 把 AppID / AppKey 填到下面
-   3. 「设置 → 安全中心 → 安全域名」→ 添加你的 GitHub Pages 域名（如 allenHawk0707.github.io）
-   4. 数据存储不用手动建表，首次写入会自动创建 WallPost 类
-   不填 AppID/AppKey 时自动保持原来的本地模式，页面照常可用 */
-var LC = {
-    APP_ID:  '',  // ← LeanCloud AppID
-    APP_KEY: '',  // ← LeanCloud AppKey
-    SERVER:  'https://us.leancloud.app', // 国际版 API；国内版改为控制台分配的专属 API 域名
-    CLASS:   'WallPost'
+/* ══ Supabase 云端同步（让所有访客看到同一份留言）══
+   1. 到 https://supabase.com 注册（可直接用 GitHub 登录）→ New project（区域选 Singapore / Tokyo，国内访问更快）
+   2. 左侧 Table Editor → Create new table：
+      名称填 posts，不勾选 Enable Row Level Security，点 Save（自带 id 列）
+      然后为它添加列：name(text) tag(text) title(text) content(text) likes(int8, 默认值 0) posted_at(int8)
+   3. 再建一张表：名称填 replies，同样不勾选 RLS，添加列：
+      post_id(uuid) name(text) text(text) created_at(int8)
+   4. Project Settings → API → 复制 Project URL 和 anon public key，填到下面
+   不填时自动保持本地模式，页面照常可用 */
+var SB = {
+    URL:      '',  // ← Supabase Project URL，如 https://xxxx.supabase.co
+    ANON_KEY: ''   // ← Supabase anon public key
 };
-var LC_READY = !!(LC.APP_ID && LC.APP_KEY);
+var SB_READY = !!(SB.URL && SB.ANON_KEY);
 
-function lcRequest(method, path, body){
-    return fetch(LC.SERVER + path, {
+function sbRequest(method, path, body){
+    var headers = { 'apikey': SB.ANON_KEY, 'Authorization': 'Bearer '+SB.ANON_KEY, 'Prefer': 'return=representation' };
+    if(body) headers['Content-Type'] = 'application/json';
+    return fetch(SB.URL + path, {
         method: method,
-        headers: { 'X-LC-Id': LC.APP_ID, 'X-LC-Key': LC.APP_KEY, 'Content-Type': 'application/json' },
+        headers: headers,
         body: body ? JSON.stringify(body) : undefined
     }).then(function(r){
         if(!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
     });
 }
-function lcToPost(o){
-    return {
-        id: o.objectId,
-        name: o.name || '匿名',
-        tag: o.tag || 'chat',
-        title: o.title || '',
-        content: o.content || '',
-        likes: o.likes || 0,
-        replies: o.replies || [],
-        createdAt: o.postedAt || new Date(o.createdAt).getTime()
-    };
+function sbQuery(){
+    return Promise.all([
+        sbRequest('GET', '/rest/v1/posts?select=*&order=posted_at.desc&limit=100'),
+        sbRequest('GET', '/rest/v1/replies?select=*&order=created_at.asc&limit=1000')
+    ]).then(function(res){
+        var replyRows = res[1] || [];
+        return (res[0] || []).map(function(o){
+            return {
+                id: o.id,
+                name: o.name || '匿名',
+                tag: o.tag || 'chat',
+                title: o.title || '',
+                content: o.content || '',
+                likes: o.likes || 0,
+                replies: replyRows.filter(function(r){ return r.post_id === o.id; })
+                    .map(function(r){ return { n: r.name, t: r.text }; }),
+                createdAt: o.posted_at || Date.now()
+            };
+        });
+    });
 }
-function lcQuery(){
-    return lcRequest('GET', '/1.1/classes/'+LC.CLASS+'?order=-postedAt&limit=100')
-        .then(function(res){ return (res.results || []).map(lcToPost); });
-}
-function lcSeed(){
+function sbSeed(){
     var times = makeFixedTimes(SEED_POSTS.length);
     var chain = Promise.resolve();
     SEED_POSTS.forEach(function(p, i){
         chain = chain.then(function(){
-            return lcRequest('POST', '/1.1/classes/'+LC.CLASS, {
+            return sbRequest('POST', '/rest/v1/posts', {
                 name: p.name, tag: p.tag, title: p.title, content: p.content,
-                likes: p.likes, replies: p.replies || [], postedAt: times[i], seed: true
+                likes: p.likes, posted_at: times[i]
+            }).then(function(created){
+                var row = created && created[0];
+                if(!row || !(p.replies || []).length) return null;
+                return sbRequest('POST', '/rest/v1/replies', (p.replies || []).map(function(r, j){
+                    return { post_id: row.id, name: r.n, text: r.t, created_at: times[i] + (j+1)*60000 };
+                }));
             });
         });
     });
     return chain;
 }
-function lcLike(id, delta){
-    return lcRequest('PUT', '/1.1/classes/'+LC.CLASS+'/'+id,
-        { likes: { __op: 'Increment', amount: delta } });
+function sbLike(id, delta){
+    return sbRequest('PATCH', '/rest/v1/posts?id=eq.'+id,
+        { likes: 'likes' + (delta >= 0 ? '+' : '-') + Math.abs(delta) });
 }
-function lcReply(id, reply){
-    return lcRequest('PUT', '/1.1/classes/'+LC.CLASS+'/'+id,
-        { replies: { __op: 'Add', objects: [reply] } });
+function sbReply(id, reply){
+    return sbRequest('POST', '/rest/v1/replies',
+        { post_id: id, name: reply.n, text: reply.t, created_at: Date.now() });
 }
-function lcNewPost(p){
-    return lcRequest('POST', '/1.1/classes/'+LC.CLASS, {
+function sbNewPost(p){
+    return sbRequest('POST', '/rest/v1/posts', {
         name: p.name, tag: p.tag, title: p.title, content: p.content,
-        likes: 0, replies: [], postedAt: Date.now()
+        likes: 0, posted_at: Date.now()
     });
 }
 var cloudSnapshot = '';
 function refreshCloud(silent){
-    if(!LC_READY) return Promise.resolve();
+    if(!SB_READY) return Promise.resolve();
     // 用户正在输入或展开回复框时跳过本轮，避免打断
     var busy = document.querySelector('.reply-box.open') ||
                (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName));
     if(busy && cloudSnapshot) return Promise.resolve();
-    return lcQuery().then(function(list){
-        if(!list.length) return lcSeed().then(function(){ return lcQuery(); });
+    return sbQuery().then(function(list){
+        if(!list.length) return sbSeed().then(function(){ return sbQuery(); });
         return list;
     }).then(function(list){
         if(list && list.length){
@@ -981,7 +995,7 @@ function likePost(id, el){
             saveLikedSet(likedSet);
             el.innerHTML='👍 赞 <b>'+posts[i].likes+'</b>';
             savePosts(posts);
-            if(LC_READY) lcLike(id, delta).then(function(){ refreshCloud(true); }).catch(function(){});
+            if(SB_READY) sbLike(id, delta).then(function(){ refreshCloud(true); }).catch(function(){});
             return;
         }
     }
@@ -1008,7 +1022,7 @@ function addReply(id){
     }
     setStatus('已以 ' + currentUser.id + ' 的身份发表评论');
     renderWall();
-    if(LC_READY) lcReply(id, reply).then(function(){ refreshCloud(true); }).catch(function(){ setStatus('评论同步到云端失败'); });
+    if(SB_READY) sbReply(id, reply).then(function(){ refreshCloud(true); }).catch(function(){ setStatus('评论同步到云端失败'); });
 }
 
 function filterWall(type, btn){
@@ -1056,8 +1070,8 @@ function submitPost(){
     if(title.length < 2){ err.textContent = '标题至少 2 个字。'; return; }
     if(!content){ err.textContent = '内容不能为空。'; return; }
     var post = { name: currentUser.id, tag: tag, title: title, content: content };
-    if(LC_READY){
-        lcNewPost(post).then(function(){
+    if(SB_READY){
+        sbNewPost(post).then(function(){
             closePost();
             setStatus('发布成功');
             return refreshCloud(false);
@@ -1079,7 +1093,7 @@ document.getElementById('post-mask').addEventListener('click', function(e){
 });
 
 /* ══ 云端同步启动：立即拉取 + 每 15 秒轮询 ══ */
-if(LC_READY){
+if(SB_READY){
     setStatus('正在连接云端……');
     refreshCloud(false);
     setInterval(function(){ refreshCloud(true); }, 15000);
