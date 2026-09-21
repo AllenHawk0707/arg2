@@ -544,44 +544,10 @@
     </div>
 </div>
 
-<!-- ── 发布留言弹窗 ── -->
-<div class="modal-mask" id="post-mask">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="post-modal-title">
-        <div class="modal-head">
-            <span id="post-modal-title">发布新留言</span>
-            <button class="modal-close" type="button" onclick="closePost()">✕</button>
-        </div>
-        <div class="modal-body">
-            <p class="modal-desc">以当前登录的 ID 发布，所有打开墙墙的人都能看到这条留言。</p>
-            <label class="modal-label" for="post-title-input">标题</label>
-            <input class="modal-input" id="post-title-input" type="text" maxlength="40" placeholder="一句话标题（2 字以上）" autocomplete="off">
-            <label class="modal-label" for="post-content-input" style="margin-top:10px;">内容</label>
-            <textarea class="modal-input" id="post-content-input" rows="4" maxlength="300" placeholder="想说的话……（Ctrl+Enter 直接发布）" style="resize:vertical;"></textarea>
-            <label class="modal-label" for="post-tag-input" style="margin-top:10px;">分类</label>
-            <select class="modal-input" id="post-tag-input">
-                <option value="chat">日常闲聊</option>
-                <option value="love">表白墙</option>
-                <option value="tree">树洞</option>
-                <option value="lost">失物招领</option>
-            </select>
-            <div class="modal-error" id="post-error"></div>
-        </div>
-        <div class="modal-foot">
-            <button class="mbtn" type="button" onclick="closePost()">取消</button>
-            <button class="mbtn primary" type="button" id="post-submit" onclick="submitPost()">发布</button>
-        </div>
-    </div>
-</div>
-
 <div class="main-content">
 
 <div class="toolbar">
     <button class="toolbar-btn active" onclick="filterWall('all', this)">墙墙</button>
-    <button class="toolbar-btn" onclick="filterWall('chat', this)">日常闲聊</button>
-    <button class="toolbar-btn" onclick="filterWall('love', this)">表白墙</button>
-    <button class="toolbar-btn" onclick="filterWall('tree', this)">树洞</button>
-    <button class="toolbar-btn" onclick="filterWall('lost', this)">失物招领</button>
-    <button class="toolbar-btn" style="margin-left:auto;" onclick="openPost()">✏️ 发布留言</button>
    
 </div>
 
@@ -638,7 +604,7 @@ var SEED_POSTS = [
       likes:31, replies:[{n:'Luna',t:'我们班直接点蜡烛了 跟开追悼会似的'},{n:'ZRT',t:'欢呼那三秒是青春'}] },
     { name:'杨TY', tag:'chat', avatar:'', title:'体能锻炼',
       content:'不觉得做操那个很难崩吗',
-      likes:12, replies:[{n:'ZIMOMO',t:'谁说不是呢'},{n:'燃则浩浩荡荡',t:'和演唱会一样···'}] },
+      likes:2, replies:[{n:'ZIMOMO',t:'谁说不是呢'},{n:'燃则浩浩荡荡',t:'和演唱会一样···'}] },
     { name:'天禄的右', tag:'tree', avatar:'', title:'月考还有一周 书还是新的',
       content:'每年都立flag每年都倒\n今年想挣扎一下 有同款的吗',
       likes:56, replies:[{n:'爱婉婷',t:'挣扎的第一步是现在合上手机'},{n:'王浩宇',t:'同款flag 又立起来了'},{n:'JunhaO',t:'我之前就想问你是主播吗'}] },
@@ -650,7 +616,7 @@ var SEED_POSTS = [
       likes:74, replies:[{n:'XHR',t:'又开始了'},{n:'进城了',t:'为什么我新的班级都一般般····'}] },
     { name:'想想蛋糕', tag:'chat', avatar:'', title:'孩子们啊',
       content:'孩子们，你们默写能不能上点心(;´Д`) ハァ',
-      likes:74, replies:[{n:'Abraxaaa',t:'上什么'},{n:'进城了',t:'为什么我新的班级都一般般····'}] }
+      likes:4, replies:[{n:'Abraxaaa',t:'上什么点心吃'},{n:'语嫣红',t:'老师你在教哪个班我们好想你'}] }
 ];
 
 var TAG_LABEL = { chat:'日常闲聊', love:'表白墙', tree:'树洞', lost:'失物招领' };
@@ -658,113 +624,6 @@ var STORE_KEY = 'xyzh_wall_posts_v2';
 var USER_KEY = 'xyzh_wall_user_v1';
 // 改 SEED_POSTS 后把下面这个数字 +1，页面会自动丢弃旧缓存、改用 HTML 里的新帖子
 var SEED_VERSION = 6;
-
-/* ══ Supabase 云端同步（让所有访客看到同一份留言）══
-   1. 到 https://supabase.com 注册（可直接用 GitHub 登录）→ New project（区域选 Singapore / Tokyo，国内访问更快）
-   2. 左侧 Table Editor → Create new table：
-      名称填 posts，不勾选 Enable Row Level Security，点 Save（自带 id 列）
-      然后为它添加列：name(text) tag(text) title(text) content(text) likes(int8, 默认值 0) posted_at(int8)
-   3. 再建一张表：名称填 replies，同样不勾选 RLS，添加列：
-      post_id(uuid) name(text) text(text) created_at(int8)
-   4. Project Settings → API → 复制 Project URL 和 anon public key，填到下面
-   不填时自动保持本地模式，页面照常可用 */
-var SB = {
-    URL:      'https://umgelwispaajjmysawrn.supabase.co',  // ← Supabase Project URL
-    ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVtZ2Vsd2lzcGFhampteXNhd3JuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5ODkwMDYsImV4cCI6MjEwNTU2NTAwNn0.PDvjM3_jei5Tf8z8FkSh2s4QlwK3R08JgSFEKLucrNg'   // ← Supabase anon public key
-};
-var SB_READY = !!(SB.URL && SB.ANON_KEY);
-
-function sbRequest(method, path, body){
-    var headers = { 'apikey': SB.ANON_KEY, 'Authorization': 'Bearer '+SB.ANON_KEY, 'Prefer': 'return=representation' };
-    if(body) headers['Content-Type'] = 'application/json';
-    return fetch(SB.URL + path, {
-        method: method,
-        headers: headers,
-        body: body ? JSON.stringify(body) : undefined
-    }).then(function(r){
-        if(!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-    });
-}
-function sbQuery(){
-    return Promise.all([
-        sbRequest('GET', '/rest/v1/posts?select=*&approved=eq.true&order=posted_at.desc&limit=100'),
-        sbRequest('GET', '/rest/v1/replies?select=*&order=created_at.asc&limit=1000')
-    ]).then(function(res){
-        var replyRows = res[1] || [];
-        return (res[0] || []).map(function(o){
-            return {
-                id: o.id,
-                name: o.name || '匿名',
-                tag: o.tag || 'chat',
-                title: o.title || '',
-                content: o.content || '',
-                likes: o.likes || 0,
-                replies: replyRows.filter(function(r){ return r.post_id === o.id; })
-                    .map(function(r){ return { n: r.name, t: r.text }; }),
-                createdAt: o.posted_at || Date.now()
-            };
-        });
-    });
-}
-function sbSeed(){
-    var times = makeFixedTimes(SEED_POSTS.length);
-    var chain = Promise.resolve();
-    SEED_POSTS.forEach(function(p, i){
-        chain = chain.then(function(){
-            return sbRequest('POST', '/rest/v1/posts', {
-                name: p.name, tag: p.tag, title: p.title, content: p.content,
-                likes: p.likes, posted_at: times[i]
-            }).then(function(created){
-                var row = created && created[0];
-                if(!row || !(p.replies || []).length) return null;
-                return sbRequest('POST', '/rest/v1/replies', (p.replies || []).map(function(r, j){
-                    return { post_id: row.id, name: r.n, text: r.t, created_at: times[i] + (j+1)*60000 };
-                }));
-            });
-        });
-    });
-    return chain;
-}
-function sbLike(id, delta){
-    return sbRequest('PATCH', '/rest/v1/posts?id=eq.'+id,
-        { likes: 'likes' + (delta >= 0 ? '+' : '-') + Math.abs(delta) });
-}
-function sbReply(id, reply){
-    return sbRequest('POST', '/rest/v1/replies',
-        { post_id: id, name: reply.n, text: reply.t, created_at: Date.now() });
-}
-function sbNewPost(p){
-    return sbRequest('POST', '/rest/v1/posts', {
-        name: p.name, tag: p.tag, title: p.title, content: p.content,
-        likes: 0, posted_at: Date.now()
-    });
-}
-var cloudSnapshot = '';
-var seedTried = false; // 防止审核机制下（帖子全部待审核时）反复重新播种
-function refreshCloud(silent){
-    if(!SB_READY) return Promise.resolve();
-    // 用户正在输入或展开回复框时跳过本轮，避免打断
-    var busy = document.querySelector('.reply-box.open') ||
-               (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName));
-    if(busy && cloudSnapshot) return Promise.resolve();
-    return sbQuery().then(function(list){
-        if(!list.length && !seedTried){ seedTried = true; return sbSeed().then(function(){ return sbQuery(); }); }
-        return list;
-    }).then(function(list){
-        if(list && list.length){
-            var snap = JSON.stringify(list);
-            if(snap !== cloudSnapshot){
-                cloudSnapshot = snap;
-                posts = list;
-                renderWall();
-                if(!silent) setStatus('已同步云端留言（'+list.length+' 条）');
-            }
-        }
-    }).catch(function(){
-        if(!silent) setStatus('云端连接失败，当前为本地模式');
-    });
-}
 
 /* ══ 账号（本地保存，仅当前浏览器有效）══ */
 function loadUser(){
@@ -947,7 +806,7 @@ function renderWall(){
             '<div class="post-title-bar">'+escapeHtml(p.title)+'</div>'+
             '<div class="post-content-body">'+escapeHtml(p.content)+'</div>'+
             '<div class="post-actions">'+
-                '<span class="like-btn'+(likedSet[p.id]?' liked':'')+'" onclick="likePost(\''+p.id+'\', this)">👍 赞 <b>'+p.likes+'</b></span>'+
+                '<span class="like-btn" onclick="likePost(\''+p.id+'\', this)">👍 赞 <b>'+p.likes+'</b></span>'+
                 '<span onclick="toggleReply(\''+p.id+'\')">💬 回复 ('+(p.replies?p.replies.length:0)+')</span>'+
             '</div>'+
             '<div class="reply-box" id="rb_'+p.id+'">'+ repliesHtml +
@@ -981,22 +840,13 @@ function avatarHtml(){
     return '<span class="post-avatar is-default">'+DEFAULT_AVATAR_SVG+'</span>';
 }
 
-/* 点赞状态本地记忆（跨刷新、跨同步防止重复点赞） */
-var LIKES_KEY = 'xyzh_wall_likes';
-function getLikedSet(){ try { return JSON.parse(localStorage.getItem(LIKES_KEY)) || {}; } catch(e){ return {}; } }
-function saveLikedSet(s){ try { localStorage.setItem(LIKES_KEY, JSON.stringify(s)); } catch(e){} }
-var likedSet = getLikedSet();
-
 function likePost(id, el){
     for(var i=0;i<posts.length;i++){
         if(posts[i].id===id){
-            var delta;
-            if(likedSet[id]){ delete likedSet[id]; posts[i].likes--; delta = -1; el.classList.remove('liked'); }
-            else { likedSet[id] = 1; posts[i].likes++; delta = 1; el.classList.add('liked'); }
-            saveLikedSet(likedSet);
+            if(el.dataset.liked==='1'){ posts[i].likes--; el.dataset.liked='0'; el.classList.remove('liked'); }
+            else { posts[i].likes++; el.dataset.liked='1'; el.classList.add('liked'); }
             el.innerHTML='👍 赞 <b>'+posts[i].likes+'</b>';
             savePosts(posts);
-            if(SB_READY) sbLike(id, delta).then(function(){ refreshCloud(true); }).catch(function(){});
             return;
         }
     }
@@ -1012,18 +862,16 @@ function addReply(id){
     var inp = document.getElementById('ri_'+id);
     var t = inp.value.trim();
     if(!t) return;
-    var reply = {n: currentUser.id, t:t};
     for(var i=0;i<posts.length;i++){
         if(posts[i].id===id){
             if(!posts[i].replies) posts[i].replies=[];
-            posts[i].replies.push(reply);
+            posts[i].replies.push({n: currentUser.id, t:t});
             savePosts(posts);
             break;
         }
     }
     setStatus('已以 ' + currentUser.id + ' 的身份发表评论');
     renderWall();
-    if(SB_READY) sbReply(id, reply).then(function(){ refreshCloud(true); }).catch(function(){ setStatus('评论同步到云端失败'); });
 }
 
 function filterWall(type, btn){
@@ -1047,58 +895,6 @@ document.getElementById('now-date').textContent = nowStr().slice(0,10);
 
 renderUserArea();
 renderWall();
-
-/* ══ 发布新留言 ══ */
-function openPost(){
-    if(!requireLogin()) return;
-    var mask = document.getElementById('post-mask');
-    if(!mask) return;
-    document.getElementById('post-error').textContent = '';
-    document.getElementById('post-title-input').value = '';
-    document.getElementById('post-content-input').value = '';
-    mask.classList.add('on');
-    setTimeout(function(){ document.getElementById('post-title-input').focus(); }, 30);
-}
-function closePost(){
-    var mask = document.getElementById('post-mask');
-    if(mask) mask.classList.remove('on');
-}
-function submitPost(){
-    var err = document.getElementById('post-error');
-    var title = document.getElementById('post-title-input').value.trim();
-    var content = document.getElementById('post-content-input').value.trim();
-    var tag = document.getElementById('post-tag-input').value;
-    if(title.length < 2){ err.textContent = '标题至少 2 个字。'; return; }
-    if(!content){ err.textContent = '内容不能为空。'; return; }
-    var post = { name: currentUser.id, tag: tag, title: title, content: content };
-    if(SB_READY){
-        sbNewPost(post).then(function(){
-            closePost();
-            setStatus('发布成功，待管理员审核通过后展示');
-            return refreshCloud(false);
-        }).catch(function(){ err.textContent = '发布失败，请稍后再试。'; });
-    } else {
-        posts.unshift({ id:'local_'+Date.now(), name:post.name, tag:post.tag, title:post.title,
-            content:post.content, likes:0, replies:[], createdAt:Date.now() });
-        savePosts(posts);
-        closePost();
-        renderWall();
-        setStatus('发布成功（本地模式）');
-    }
-}
-document.getElementById('post-content-input').addEventListener('keydown', function(e){
-    if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); submitPost(); }
-});
-document.getElementById('post-mask').addEventListener('click', function(e){
-    if(e.target === this) closePost();
-});
-
-/* ══ 云端同步启动：立即拉取 + 每 15 秒轮询 ══ */
-if(SB_READY){
-    setStatus('正在连接云端……');
-    refreshCloud(false);
-    setInterval(function(){ refreshCloud(true); }, 15000);
-}
 
 /* 登录弹窗交互：回车提交、ESC 关闭、点遮罩关闭 */
 document.getElementById('login-input').addEventListener('keydown', function(e){
