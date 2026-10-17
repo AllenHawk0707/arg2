@@ -950,6 +950,12 @@ document.getElementById('login-mask').addEventListener('click', function(e){
         'body.vglitch{animation:vshake .26s steps(3) 1;}',
         '@keyframes vshake{0%{transform:translate(0,0)}25%{transform:translate(-3px,1px)}',
         '50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}100%{transform:translate(0,0)}}',
+        '.virus-noise{position:fixed;inset:0;pointer-events:none;z-index:99997;overflow:hidden;',
+        'color:#ff2b2b;font-family:Consolas,"Courier New",monospace;font-size:13px;',
+        'line-height:1.15;white-space:pre;word-break:break-all;opacity:0;',
+        'background:rgba(14,0,0,.24);text-shadow:0 0 7px rgba(255,0,0,.65);',
+        'transition:opacity .14s linear;}',
+        '.virus-noise.show{opacity:.62;animation:vflicker .19s steps(2) infinite;}',
         '.virus-prog{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);',
         'opacity:0;transition:opacity .18s linear;white-space:nowrap;}',
         '.virus-prog.show{opacity:1;}',
@@ -984,7 +990,14 @@ document.getElementById('login-mask').addEventListener('click', function(e){
         'connection reset by peer — retrying',
         'SYSTEM BREACH :: 数据泄露中',
         'overwriting /home/wall/index ...done',
-        '[!] 检测到未知脚本注入 wall.js'
+        '[!] 检测到未知脚本注入 wall.js',
+        '锟斤拷锟斤拷锟斤拷 ERROR 0xFFFD',
+        '烫烫烫烫烫烫烫烫 [stack smashing detected]',
+        '屯屯屯屯屯屯 内存已被覆写 ▓▒░',
+        '锘锘锘 UNICODE REPLACEMENT 0xEFBFBD',
+        '▓▒░ SECTOR CORRUPT ░▒▓ 无法读取',
+        '编码错误 //// //// ████ 0x80070057',
+        '屯屯屯锟斤拷烫烫烫 ??? not utf-8'
     ];
 
     var enabled = true, timer = null;
@@ -1052,6 +1065,37 @@ document.getElementById('login-mask').addEventListener('click', function(e){
         }, 500 + Math.random()*500);
     }
 
+    /* ── 乱码遮罩：铺满整屏、fixed 定位不随页面滚动 ── */
+    var noise = document.createElement('div');
+    noise.className = 'virus-noise';
+    document.body.appendChild(noise);
+    var noiseTimer = null;
+
+    var GB = ('锟斤拷烫屯锘铪锟斤拷乱码烫屯锘' +
+              'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' +
+              'アカサタナハマヤラワヲンヰヱ' +
+              '▓▒░█▚▞░▒▓◆◇※§¶×÷±≠∞▲▼◢◣' +
+              '{}[]<>/\\|!@#$%^&*()_+-=?~');
+    function garbled(len){
+        var s = '';
+        for(var i = 0; i < len; i++) s += GB.charAt(Math.floor(Math.random()*GB.length));
+        return s;
+    }
+    function paintNoise(){
+        if(!enabled) return;
+        var rows = Math.ceil(window.innerHeight / 16) + 2;
+        var cols = Math.ceil(window.innerWidth / 7);
+        var out = [];
+        for(var r = 0; r < rows; r++) out.push(garbled(cols));
+        noise.textContent = out.join('\n');
+        noise.classList.add('show');
+        setTimeout(function(){ noise.classList.remove('show'); }, 600 + Math.random()*1200);
+    }
+    function noiseLoop(){
+        paintNoise();
+        noiseTimer = setTimeout(noiseLoop, 6500 + Math.random()*9000);
+    }
+
     /* ── 清除进度条：每 20 秒出现一次，进度递增 ── */
     var cleanPct = 13, progEl = null, progTimer = null;
 
@@ -1087,6 +1131,7 @@ document.getElementById('login-mask').addEventListener('click', function(e){
             (function(d){ setTimeout(scanBar, d); })(b * (120 + Math.random()*260));
         }
         if(Math.random() < 0.3) doBreach();
+        if(Math.random() < 0.5) paintNoise();
         // 偶尔连锁触发，制造「密集爆发」的错觉
         if(Math.random() < 0.35) setTimeout(burst, 300 + Math.random()*700);
         schedule();
@@ -1103,17 +1148,21 @@ document.getElementById('login-mask').addEventListener('click', function(e){
             if(!enabled){
                 fx.innerHTML = '';
                 flash.classList.remove('on');
+                noise.classList.remove('show');
+                noise.textContent = '';
                 if(progEl) progEl.classList.remove('show');
-                clearTimeout(timer); clearTimeout(progTimer);
+                clearTimeout(timer); clearTimeout(progTimer); clearTimeout(noiseTimer);
             } else {
                 schedule();
                 progTimer = setTimeout(showProgress, 4000);
+                noiseLoop();
             }
         }
     });
 
     schedule();
     progTimer = setTimeout(showProgress, 2500);
+    noiseTimer = setTimeout(noiseLoop, 3500);
 })();
 
 /* ── 涂黑文字块：用宽度遮住原文字 ── */
