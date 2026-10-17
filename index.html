@@ -628,7 +628,7 @@ var SEED_POSTS = [
       likes:3, replies:[{n:'LJH',t:'能联系到都很难呢···'}] },
     { name:'想想蛋糕', tag:'chat', avatar:'', title:'求助！',
       content:'孩子们，之前班级的默写登记 找不到了...',
-      likes:23, replies:[{n:'ZIMOMO',t:'是不是当时谁偷偷拿走划名字忘记放回去了'},{n:'赵+1',t:'谁会干这样的事，好难崩'},{n:'雨天的欣',t:'看看默写成绩就知道了吧```'}] }, 
+      likes:23, replies:[{n:'ZIMOMO',t:'是不是当时谁偷偷拿走划名字忘记放回去了'},{n:'赵+1',t:'谁会干这样的事，好难崩'},{n:'雨天的欣',t:'看看默写成绩就知道了吧```'}] },
     { name:'摄影社社长', tag:'chat', avatar:'', title:'摄影社招新！！！',
       content:'摄影社开始招新啦，有意向加QQ3913534943，社长我在等你们哦~',
       likes:3, replies:[{n:'LJH',t:'摄影社开播了 ZDJD'}] },
@@ -922,6 +922,155 @@ document.getElementById('login-input').addEventListener('keydown', function(e){
 document.getElementById('login-mask').addEventListener('click', function(e){
     if(e.target === this) closeLogin();
 });
+
+/* ══ 「病毒入侵」视觉效果：时不时闪现红色代码 ══
+   纯前端动画，无任何恶意行为；按 Ctrl+Alt+V 可开关此特效 */
+(function(){
+    var css = [
+        '#virus-fx{position:fixed;inset:0;pointer-events:none;z-index:99999;overflow:hidden;}',
+        '.virus-code{position:absolute;color:#ff2b2b;font-family:Consolas,"Courier New",monospace;',
+        'font-size:12px;line-height:1.55;white-space:pre;opacity:0;',
+        'text-shadow:0 0 6px rgba(255,0,0,.85),0 0 14px rgba(255,0,0,.45);}',
+        '.virus-code.show{opacity:.92;animation:vflicker .16s steps(2) infinite;}',
+        '@keyframes vflicker{0%{opacity:.92}45%{opacity:.3}70%{opacity:.85}100%{opacity:.6}}',
+        '#virus-flash{position:fixed;inset:0;pointer-events:none;z-index:99998;',
+        'background:radial-gradient(circle at 50% 40%,rgba(255,0,0,.16),rgba(255,0,0,.05));',
+        'opacity:0;transition:opacity .09s linear;}',
+        '#virus-flash.on{opacity:1;}',
+        '.virus-bar{position:absolute;left:0;width:100%;height:2px;background:#ff2b2b;',
+        'box-shadow:0 0 12px 2px rgba(255,0,0,.9);opacity:.85;}',
+        '.virus-breach{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);',
+        'color:#ff0000;font-family:Consolas,monospace;font-weight:700;letter-spacing:8px;',
+        'font-size:min(8vw,58px);text-shadow:0 0 22px rgba(255,0,0,.9);opacity:0;',
+        'transition:opacity .14s linear;white-space:nowrap;}',
+        '.virus-breach.show{opacity:.88;}',
+        'body.vglitch{animation:vshake .26s steps(3) 1;}',
+        '@keyframes vshake{0%{transform:translate(0,0)}25%{transform:translate(-3px,1px)}',
+        '50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}100%{transform:translate(0,0)}}'
+    ].join('');
+    var st = document.createElement('style');
+    st.textContent = css;
+    document.head.appendChild(st);
+
+    var fx = document.createElement('div');
+    fx.id = 'virus-fx';
+    document.body.appendChild(fx);
+    var flash = document.createElement('div');
+    flash.id = 'virus-flash';
+    document.body.appendChild(flash);
+
+    var POOL = [
+        'WARN: unauthorized access detected',
+        'root@wall:~# rm -rf /var/wall/posts/*',
+        '0xDEADBEEF  SEGFAULT at 0x08048a3f',
+        'EXFILTRATING ███████░░░ 73%',
+        'kernel panic - not syncing: fatal exception',
+        'TRACE 114.514.191.981 → TARGET PORT 443',
+        'DECRYPTING student_records.db ...',
+        'ACCESS GRANTED // uid=0(root) gid=0(root)',
+        'payload injected @ 0x7fff5a3c2b10',
+        'kill -9 $(pgrep firewall)',
+        'bypassing auth layer 3/3 ... OK',
+        'MEMORY CORRUPTION @ 0xC0000005',
+        'id_rsa → remote_host : data leaked',
+        '正在上传 墙墙数据库 ... 请勿断电',
+        'connection reset by peer — retrying',
+        'SYSTEM BREACH :: 数据泄露中',
+        'overwriting /home/wall/index ...done',
+        '[!] 检测到未知脚本注入 wall.js'
+    ];
+
+    var enabled = true, timer = null;
+
+    function pick(){
+        var n = 1 + Math.floor(Math.random()*3);
+        var out = [], used = {};
+        while(out.length < n){
+            var i = Math.floor(Math.random()*POOL.length);
+            if(!used[i]){ used[i] = 1; out.push(POOL[i]); }
+        }
+        return out.join('\n');
+    }
+
+    function showCode(){
+        var el = document.createElement('div');
+        el.className = 'virus-code';
+        el.textContent = pick();
+        var w = Math.min(window.innerWidth - 40, 360);
+        var h = Math.min(window.innerHeight - 40, 160);
+        el.style.left = Math.floor(Math.random()*(window.innerWidth - w)) + 'px';
+        el.style.top = Math.floor(Math.random()*(window.innerHeight - h)) + 'px';
+        fx.appendChild(el);
+        requestAnimationFrame(function(){ el.classList.add('show'); });
+        setTimeout(function(){
+            el.classList.remove('show');
+            setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 200);
+        }, 420 + Math.random()*900);
+    }
+
+    function scanBar(){
+        var bar = document.createElement('div');
+        bar.className = 'virus-bar';
+        bar.style.top = (Math.random()*window.innerHeight) + 'px';
+        fx.appendChild(bar);
+        var start = Date.now(), dur = 520;
+        (function step(){
+            var p = (Date.now()-start)/dur;
+            if(p >= 1){ if(bar.parentNode) bar.parentNode.removeChild(bar); return; }
+            bar.style.transform = 'translateY(' + (Math.sin(p*Math.PI*3)*60) + 'px)';
+            bar.style.opacity = String(0.85*(1-p));
+            requestAnimationFrame(step);
+        })();
+    }
+
+    function doFlash(){
+        flash.classList.add('on');
+        setTimeout(function(){ flash.classList.remove('on'); }, 90 + Math.random()*160);
+    }
+
+    function doGlitch(){
+        document.body.classList.add('vglitch');
+        setTimeout(function(){ document.body.classList.remove('vglitch'); }, 280);
+    }
+
+    function doBreach(){
+        var el = document.createElement('div');
+        el.className = 'virus-breach';
+        el.textContent = 'SYSTEM BREACH';
+        fx.appendChild(el);
+        requestAnimationFrame(function(){ el.classList.add('show'); });
+        setTimeout(function(){
+            el.classList.remove('show');
+            setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 200);
+        }, 500 + Math.random()*500);
+    }
+
+    function burst(){
+        if(!enabled) return;
+        showCode();
+        if(Math.random() < 0.45) setTimeout(showCode, 120 + Math.random()*300);
+        if(Math.random() < 0.55) doFlash();
+        if(Math.random() < 0.35) doGlitch();
+        if(Math.random() < 0.28) scanBar();
+        if(Math.random() < 0.16) doBreach();
+        schedule();
+    }
+
+    function schedule(){
+        clearTimeout(timer);
+        timer = setTimeout(burst, 7000 + Math.random()*14000);
+    }
+
+    document.addEventListener('keydown', function(e){
+        if(e.ctrlKey && e.altKey && (e.key === 'v' || e.key === 'V')){
+            enabled = !enabled;
+            if(!enabled){ fx.innerHTML = ''; flash.classList.remove('on'); clearTimeout(timer); }
+            else schedule();
+        }
+    });
+
+    schedule();
+})();
 
 /* ── 涂黑文字块：用宽度遮住原文字 ── */
 document.addEventListener('DOMContentLoaded', function(){
