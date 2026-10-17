@@ -1047,18 +1047,27 @@ document.getElementById('login-mask').addEventListener('click', function(e){
 
     function burst(){
         if(!enabled) return;
-        showCode();
-        if(Math.random() < 0.45) setTimeout(showCode, 120 + Math.random()*300);
-        if(Math.random() < 0.55) doFlash();
-        if(Math.random() < 0.35) doGlitch();
-        if(Math.random() < 0.28) scanBar();
-        if(Math.random() < 0.16) doBreach();
+        // 一次爆发同时弹出 2~4 个代码块
+        var n = 2 + Math.floor(Math.random()*3);
+        for(var i = 0; i < n; i++){
+            (function(d){ setTimeout(showCode, d); })(i * (40 + Math.random()*180));
+        }
+        if(Math.random() < 0.8) doFlash();
+        if(Math.random() < 0.55) doGlitch();
+        // 1~2 条扫描线
+        var bars = Math.random() < 0.6 ? (1 + Math.floor(Math.random()*2)) : 0;
+        for(var b = 0; b < bars; b++){
+            (function(d){ setTimeout(scanBar, d); })(b * (120 + Math.random()*260));
+        }
+        if(Math.random() < 0.3) doBreach();
+        // 偶尔连锁触发，制造「密集爆发」的错觉
+        if(Math.random() < 0.35) setTimeout(burst, 300 + Math.random()*700);
         schedule();
     }
 
     function schedule(){
         clearTimeout(timer);
-        timer = setTimeout(burst, 7000 + Math.random()*14000);
+        timer = setTimeout(burst, 2000 + Math.random()*5000);
     }
 
     document.addEventListener('keydown', function(e){
