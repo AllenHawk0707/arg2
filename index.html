@@ -1100,13 +1100,12 @@ document.getElementById('login-mask').addEventListener('click', function(e){
             for(var r = 0; r < lines; r++) out.push(garbled(cols));
             b.textContent = out.join('\n');
             noise.appendChild(b);
-            (function(el, d){
-                setTimeout(function(){ el.classList.add('show'); }, d);
-                setTimeout(function(){
-                    el.classList.remove('show');
-                    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 220);
-                }, d + 600 + Math.random()*1100);
-            })(b, i * (50 + Math.random()*160));
+            // 出现后保持常驻，不再消失
+            (function(el, d){ setTimeout(function(){ el.classList.add('show'); }, d); })(b, i * (50 + Math.random()*160));
+            // 数量过多时移除最早的一块，避免堆满整屏（上限 18 块）
+            while(noise.children.length > 18 && noise.firstChild){
+                noise.removeChild(noise.firstChild);
+            }
         }
     }
     function noiseLoop(){
