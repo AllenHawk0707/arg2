@@ -950,12 +950,12 @@ document.getElementById('login-mask').addEventListener('click', function(e){
         'body.vglitch{animation:vshake .26s steps(3) 1;}',
         '@keyframes vshake{0%{transform:translate(0,0)}25%{transform:translate(-3px,1px)}',
         '50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}100%{transform:translate(0,0)}}',
-        '.virus-noise{position:fixed;inset:0;pointer-events:none;z-index:99997;overflow:hidden;',
-        'color:#ff2b2b;font-family:Consolas,"Courier New",monospace;font-size:13px;',
-        'line-height:1.15;white-space:pre;word-break:break-all;opacity:0;',
-        'background:rgba(14,0,0,.24);text-shadow:0 0 7px rgba(255,0,0,.65);',
+        '.virus-noise{position:fixed;inset:0;pointer-events:none;z-index:99997;overflow:hidden;}',
+        '.virus-nblock{position:absolute;color:#ff2b2b;font-family:Consolas,"Courier New",monospace;',
+        'font-size:12px;line-height:1.15;white-space:pre;overflow:hidden;opacity:0;',
+        'padding:2px 4px;background:rgba(14,0,0,.26);text-shadow:0 0 6px rgba(255,0,0,.6);',
         'transition:opacity .14s linear;}',
-        '.virus-noise.show{opacity:.62;animation:vflicker .19s steps(2) infinite;}',
+        '.virus-nblock.show{opacity:.78;animation:vflicker .19s steps(2) infinite;}',
         '.virus-prog{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);',
         'opacity:0;transition:opacity .18s linear;white-space:nowrap;}',
         '.virus-prog.show{opacity:1;}',
@@ -1083,13 +1083,31 @@ document.getElementById('login-mask').addEventListener('click', function(e){
     }
     function paintNoise(){
         if(!enabled) return;
-        var rows = Math.ceil(window.innerHeight / 16) + 2;
-        var cols = Math.ceil(window.innerWidth / 7);
-        var out = [];
-        for(var r = 0; r < rows; r++) out.push(garbled(cols));
-        noise.textContent = out.join('\n');
-        noise.classList.add('show');
-        setTimeout(function(){ noise.classList.remove('show'); }, 600 + Math.random()*1200);
+        noise.innerHTML = '';
+        var n = 2 + Math.floor(Math.random()*4);           // 2~5 小块
+        for(var i = 0; i < n; i++){
+            var w = 90 + Math.random()*190;                // 宽 90~280
+            var h = 30 + Math.random()*80;                 // 高 30~110
+            var lines = Math.max(2, Math.floor(h / 15));
+            var cols = Math.max(8, Math.floor(w / 7));
+            var b = document.createElement('div');
+            b.className = 'virus-nblock';
+            b.style.width = w + 'px';
+            b.style.height = h + 'px';
+            b.style.left = Math.floor(Math.random() * Math.max(1, window.innerWidth - w)) + 'px';
+            b.style.top = Math.floor(Math.random() * Math.max(1, window.innerHeight - h)) + 'px';
+            var out = [];
+            for(var r = 0; r < lines; r++) out.push(garbled(cols));
+            b.textContent = out.join('\n');
+            noise.appendChild(b);
+            (function(el, d){
+                setTimeout(function(){ el.classList.add('show'); }, d);
+                setTimeout(function(){
+                    el.classList.remove('show');
+                    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 220);
+                }, d + 600 + Math.random()*1100);
+            })(b, i * (50 + Math.random()*160));
+        }
     }
     function noiseLoop(){
         paintNoise();
