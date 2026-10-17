@@ -946,7 +946,18 @@ document.getElementById('login-mask').addEventListener('click', function(e){
         '.virus-breach.show{opacity:.88;}',
         'body.vglitch{animation:vshake .26s steps(3) 1;}',
         '@keyframes vshake{0%{transform:translate(0,0)}25%{transform:translate(-3px,1px)}',
-        '50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}100%{transform:translate(0,0)}}'
+        '50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}100%{transform:translate(0,0)}}',
+        '.virus-prog{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);',
+        'width:min(84vw,380px);padding:10px 12px;background:rgba(8,8,8,.94);',
+        'border:1px solid #ff2b2b;border-radius:4px;box-shadow:0 0 20px rgba(255,0,0,.5);',
+        'opacity:0;transition:opacity .18s linear;}',
+        '.virus-prog.show{opacity:1;}',
+        '.virus-prog-label{color:#ff5252;font-family:Consolas,"Courier New",monospace;',
+        'font-size:12px;letter-spacing:1px;margin-bottom:7px;text-shadow:0 0 7px rgba(255,0,0,.75);}',
+        '.virus-prog-track{height:9px;background:rgba(255,255,255,.14);border-radius:2px;overflow:hidden;}',
+        '.virus-prog-fill{height:100%;width:0;border-radius:2px;',
+        'background:linear-gradient(90deg,#b30000,#ff2b2b 60%,#ff8a8a);',
+        'box-shadow:0 0 12px rgba(255,0,0,.95);transition:width .35s linear;}'
     ].join('');
     var st = document.createElement('style');
     st.textContent = css;
@@ -1045,6 +1056,34 @@ document.getElementById('login-mask').addEventListener('click', function(e){
         }, 500 + Math.random()*500);
     }
 
+    /* ── 清除进度条：每 20 秒出现一次，进度递增 ── */
+    var cleanPct = 13, progEl = null, progTimer = null;
+
+    function showProgress(){
+        if(!enabled) return;
+        if(!progEl){
+            progEl = document.createElement('div');
+            progEl.className = 'virus-prog';
+            progEl.innerHTML =
+                '<div class="virus-prog-label"></div>' +
+                '<div class="virus-prog-track"><div class="virus-prog-fill"></div></div>';
+            document.body.appendChild(progEl);
+        }
+        var label = progEl.querySelector('.virus-prog-label');
+        var fill = progEl.querySelector('.virus-prog-fill');
+        var pct = Math.min(100, Math.round(cleanPct));
+        label.textContent = (pct >= 100 ? '清除完成：' : '清除进度：') + pct + '%';
+        progEl.classList.add('show');
+        requestAnimationFrame(function(){ fill.style.width = pct + '%'; });
+        setTimeout(function(){
+            progEl.classList.remove('show');
+            setTimeout(function(){ if(fill) fill.style.width = '0'; }, 220);
+        }, 2600);
+        // 下一次的进度：递增；到达 100% 后回到低值重新循环
+        cleanPct = (pct >= 100) ? (8 + Math.random()*7) : (cleanPct + 6 + Math.random()*17);
+        progTimer = setTimeout(showProgress, 20000);
+    }
+
     function burst(){
         if(!enabled) return;
         // 一次爆发同时弹出 2~4 个代码块
@@ -1073,12 +1112,20 @@ document.getElementById('login-mask').addEventListener('click', function(e){
     document.addEventListener('keydown', function(e){
         if(e.ctrlKey && e.altKey && (e.key === 'v' || e.key === 'V')){
             enabled = !enabled;
-            if(!enabled){ fx.innerHTML = ''; flash.classList.remove('on'); clearTimeout(timer); }
-            else schedule();
+            if(!enabled){
+                fx.innerHTML = '';
+                flash.classList.remove('on');
+                if(progEl) progEl.classList.remove('show');
+                clearTimeout(timer); clearTimeout(progTimer);
+            } else {
+                schedule();
+                progTimer = setTimeout(showProgress, 4000);
+            }
         }
     });
 
     schedule();
+    progTimer = setTimeout(showProgress, 2500);
 })();
 
 /* ── 涂黑文字块：用宽度遮住原文字 ── */
