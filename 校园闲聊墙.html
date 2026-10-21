@@ -374,6 +374,32 @@
         }
 
         .user-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 16px;
+            font-family: var(--sans);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: .5px;
+            color: #fff;
+            background: var(--accent);
+            border: 1px solid var(--accent-d);
+            border-radius: 3px;
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .22);
+            transition: background .15s, transform .1s, box-shadow .15s;
+        }
+        .user-link:hover {
+            background: var(--accent-d);
+            color: #fff;
+            text-decoration: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .28);
+        }
+        .user-link:active { transform: translateY(1px); }
+
+        /* 已登录时的「退出」用弱化样式，避免抢眼 */
+        .user-exit {
             padding: 3px 8px;
             font-family: var(--sans);
             font-size: 12.5px;
@@ -382,7 +408,7 @@
             border: none;
             cursor: pointer;
         }
-        .user-link:hover { color: var(--accent); text-decoration: underline; }
+        .user-exit:hover { color: var(--accent); text-decoration: underline; }
 
         /* ── 登录弹窗 ── */
         .modal-mask {
@@ -673,9 +699,9 @@ function renderUserArea(){
         el.innerHTML =
             '<span class="user-chip"><span class="dot"></span>'+
                 '<span class="uid">'+escapeHtml(currentUser.id)+'</span></span>'+
-            '<button class="user-link" type="button" onclick="doLogout()">退出</button>';
+            '<button class="user-exit" type="button" onclick="doLogout()">退出</button>';
     } else {
-        el.innerHTML = '<button class="user-link" type="button" onclick="openLogin()">登录 / 注册</button>';
+        el.innerHTML = '<button class="user-link" type="button" onclick="openLogin()">👤 登录 / 注册</button>';
     }
 }
 
