@@ -526,12 +526,7 @@
             white-space: pre-line;
             padding: 2px 0 6px;
         }
-        .notice-sign {
-            margin-top: 12px;
-            text-align: right;
-            font-size: 12px;
-            color: var(--ink-3);
-        }
+
 
         /* ── 响应式 ── */
         @media (max-width: 640px) {
@@ -569,14 +564,13 @@
 <div class="modal-mask" id="notice-mask">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="notice-title">
         <div class="modal-head">
-            <span id="notice-title">📢 公告</span>
+            <span id="notice-title">公告</span>
             <button class="modal-close" type="button" onclick="closeNotice()">✕</button>
         </div>
         <div class="modal-body">
             <div class="notice-text">为维护校园信息秩序，即日起，各班级公告、值日表、活动通知统一由班级信息员审核后发布。
 未经审核的纸质材料不得张贴于公告栏。
 请同学们不信谣、不传谣，共同维护良好的学习环境。</div>
-            <div class="notice-sign">大同中学墙墙 管理组</div>
         </div>
         <div class="modal-foot">
             <button class="mbtn primary" type="button" onclick="closeNotice()">我知道了</button>
