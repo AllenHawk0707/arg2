@@ -467,6 +467,7 @@
 
         .modal-input {
             width: 100%;
+            margin-bottom: 10px;
             padding: 8px 10px;
             font-family: var(--sans);
             font-size: 13.5px;
@@ -557,10 +558,10 @@
             <button class="modal-close" type="button" onclick="closeLogin()">✕</button>
         </div>
         <div class="modal-body">
-            <p class="modal-desc" id="login-desc">输入你的 ID 即可进入墙墙。ID 会显示在右上角，并以你的名义发布留言和评论。</p>
-            <label class="modal-label" for="login-input">你的 ID</label>
             <input class="modal-input" id="login-input" type="text" maxlength="16"
-                   placeholder="2-16 个字符，如 高二3班小苏" autocomplete="off">
+                   placeholder="你的 ID" autocomplete="off">
+            <input class="modal-input" id="login-pwd" type="password" maxlength="32"
+                   placeholder="密码" autocomplete="new-password">
             <div class="modal-error" id="login-error"></div>
         </div>
         <div class="modal-foot">
@@ -708,12 +709,14 @@ function renderUserArea(){
 function openLogin(){
     var mask = document.getElementById('login-mask');
     var inp = document.getElementById('login-input');
+    var pwd = document.getElementById('login-pwd');
     var err = document.getElementById('login-error');
     var btn = document.getElementById('login-submit');
     var title = document.getElementById('login-title');
     if(!mask) return;
     err.textContent = '';
     inp.value = isLoggedIn() ? currentUser.id : '';
+    if(pwd) pwd.value = '';
     title.textContent = isLoggedIn() ? '修改 ID' : '登录墙墙';
     btn.textContent = isLoggedIn() ? '保存' : '进入';
     mask.classList.add('on');
@@ -727,8 +730,10 @@ function closeLogin(){
 
 function submitLogin(){
     var inp = document.getElementById('login-input');
+    var pwdInp = document.getElementById('login-pwd');
     var err = document.getElementById('login-error');
     var id = (inp.value || '').trim().replace(/\s+/g, ' ');
+    var pwd = pwdInp ? (pwdInp.value || '') : '';
 
     if(!id){ err.textContent = '请输入你的 ID。'; inp.focus(); return; }
     if(id.length < 2){ err.textContent = 'ID 至少 2 个字符。'; inp.focus(); return; }
@@ -736,6 +741,11 @@ function submitLogin(){
     if(!/^[\w\u4e00-\u9fa5（）()·\-\s]+$/.test(id)){
         err.textContent = 'ID 只能包含中英文、数字、空格和常用符号。';
         inp.focus(); return;
+    }
+    // 首次登录必须设置密码；已登录状态下修改 ID 时留空即表示不修改
+    if(!isLoggedIn()){
+        if(!pwd){ err.textContent = '请输入密码。'; if(pwdInp) pwdInp.focus(); return; }
+        if(pwd.length < 4){ err.textContent = '密码至少 4 位。'; if(pwdInp) pwdInp.focus(); return; }
     }
 
     currentUser = { id: id, since: (currentUser && currentUser.since) || nowStr() };
@@ -945,6 +955,10 @@ renderWall();
 
 /* 登录弹窗交互：回车提交、ESC 关闭、点遮罩关闭 */
 document.getElementById('login-input').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); submitLogin(); }
+    if(e.key === 'Escape'){ closeLogin(); }
+});
+document.getElementById('login-pwd').addEventListener('keydown', function(e){
     if(e.key === 'Enter'){ e.preventDefault(); submitLogin(); }
     if(e.key === 'Escape'){ closeLogin(); }
 });
