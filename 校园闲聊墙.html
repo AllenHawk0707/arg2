@@ -996,6 +996,8 @@ document.getElementById('login-mask').addEventListener('click', function(e){
         'padding:2px 4px;background:rgba(14,0,0,.26);text-shadow:0 0 6px rgba(255,0,0,.6);',
         'transition:opacity .14s linear;}',
         '.virus-nblock.show{opacity:.78;animation:vflicker .19s steps(2) infinite;}',
+        '.virus-stop{color:#fff;font-weight:700;letter-spacing:1px;',
+        'text-shadow:0 0 10px rgba(255,0,0,.95),0 0 20px rgba(255,0,0,.6);}',
         '.virus-prog{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);',
         'opacity:0;transition:opacity .18s linear;white-space:nowrap;}',
         '.virus-prog.show{opacity:1;}',
@@ -1116,10 +1118,22 @@ document.getElementById('login-mask').addEventListener('click', function(e){
               'アカサタナハマヤラワヲンヰヱ' +
               '▓▒░█▚▞░▒▓◆◇※§¶×÷±≠∞▲▼◢◣' +
               '{}[]<>/\\|!@#$%^&*()_+-=?~');
+    /* 间断出现的「停下」多语种词组 */
+    var STOP_WORDS = [
+        '停下', '停止', '停下来', '别继续了', '住手', 'STOP', 'stop', 'Stop!',
+        '止まれ', 'ストップ', '멈춰', '그만', 'Arrête', 'Halte',
+        'Halt', 'Anhalten', 'Fermati', 'Basta', 'Pare', 'Alto',
+        'Parada', 'Стоп', 'Остановись', 'توقف', 'Dur', 'Durun',
+        'Dừng lại', 'หยุด', 'Berhenti', 'hentikan', 'Stadt', 'Staph'
+    ];
+
     function garbled(len){
         var s = '';
         for(var i = 0; i < len; i++) s += GB.charAt(Math.floor(Math.random()*GB.length));
         return s;
+    }
+    function esc(s){
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
     function paintNoise(){
         if(!enabled) return;
@@ -1136,9 +1150,29 @@ document.getElementById('login-mask').addEventListener('click', function(e){
             b.style.height = h + 'px';
             b.style.left = Math.floor(Math.random() * Math.max(1, window.innerWidth - w)) + 'px';
             b.style.top = Math.floor(Math.random() * Math.max(1, window.innerHeight - h)) + 'px';
+            // 约一半的块会混入「停下 / stop」多语种词组，间断出现
+            var wordMode = Math.random() < 0.5;
+            var w1 = STOP_WORDS[Math.floor(Math.random()*STOP_WORDS.length)];
             var out = [];
-            for(var r = 0; r < lines; r++) out.push(garbled(cols));
-            b.textContent = out.join('\n');
+            for(var r = 0; r < lines; r++){
+                var line = garbled(cols);
+                if(wordMode && Math.random() < 0.5){
+                    var pos = Math.floor(Math.random() * Math.max(1, cols - w1.length - 2));
+                    out.push(esc(line.slice(0, pos)) +
+                             '<span class="virus-stop">' + esc(w1) + '</span>' +
+                             esc(line.slice(pos + w1.length)));
+                } else {
+                    out.push(esc(line));
+                }
+            }
+            // 偶尔整行都是这个词，形成一句重复的警告
+            if(wordMode && lines >= 3 && Math.random() < 0.4){
+                var mid = Math.floor(lines / 2), rep = '';
+                var cnt = Math.max(1, Math.floor(cols / (w1.length + 2)));
+                for(var q = 0; q < cnt; q++) rep += '<span class="virus-stop">' + esc(w1) + '</span>  ';
+                out[mid] = rep;
+            }
+            b.innerHTML = out.join('\n');
             noise.appendChild(b);
             // 出现后保持常驻，不再消失
             (function(el, d){ setTimeout(function(){ el.classList.add('show'); }, d); })(b, i * (50 + Math.random()*160));
