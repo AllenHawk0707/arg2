@@ -140,6 +140,24 @@
         }
         .class-bar .toolbar-btn { padding: 9px 12px; font-size: 12.5px; }
 
+        /* 无权限提示 */
+        .no-perm {
+            text-align: center;
+            padding: 72px 20px;
+            color: var(--ink-3);
+        }
+        .no-perm-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #a4262c;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        .no-perm-desc {
+            font-size: 12.5px;
+            line-height: 1.9;
+        }
+
         .content-area {
             background-color: var(--surface);
             border: none;
@@ -622,7 +640,7 @@
 <!-- ── 班级筛选：一班 ~ 十一班 ── -->
 <div class="toolbar class-bar">
     <span class="class-bar-label">班级</span>
-    <button class="toolbar-btn cls-btn active" onclick="filterClass(0, this)">全部</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(0, this)">全部</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(1, this)">一班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(2, this)">二班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(3, this)">三班</button>
@@ -633,7 +651,7 @@
     <button class="toolbar-btn cls-btn" onclick="filterClass(8, this)">八班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(9, this)">九班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(10, this)">十班</button>
-    <button class="toolbar-btn cls-btn" onclick="filterClass(11, this)">十一班</button>
+    <button class="toolbar-btn cls-btn active" id="cls-11" onclick="filterClass(11, this)">十一班</button>
 </div>
 
 <div class="content-area" id="wall">
@@ -908,8 +926,9 @@ function relativeTime(ts){
 }
 
 var currentFilter = 'all';
-var currentClass = 0;   // 0 = 全部班级；1~11 = 对应班级
-var DEFAULT_CLASS = 11; // 现有全部帖子归入十一班
+var currentClass = 11;   // 0 = 全部班级；1~11 = 对应班级（默认十一班）
+var DEFAULT_CLASS = 11;  // 现有全部帖子归入十一班
+var ALLOWED_CLASS = 11;  // 仅有权限查看的班级，其余班级点击后显示「无权限」
 var CLASS_NAMES = ['','一班','二班','三班','四班','五班','六班','七班','八班','九班','十班','十一班'];
 
 function renderWall(){
@@ -918,6 +937,18 @@ function renderWall(){
     var meta = '<div class="wall-meta">欢迎来到大同中学墙墙 · 匿名发布 · 文明发言 · '+
                '当前：'+clsLabel+' · 共 <span id="post-count">'+posts.length+'</span> 条留言</div>';
     var html = meta;
+    // 无权限班级：不显示任何内容
+    if(currentClass !== ALLOWED_CLASS){
+        wall.innerHTML = meta +
+            '<div class="no-perm">'+
+                '<div class="no-perm-title">无权限</div>'+
+                '<div class="no-perm-desc">你没有查看'+(currentClass ? CLASS_NAMES[currentClass] : '全部班级')+
+                '内容的权限。<br>如需访问，请联系班级信息员开通权限。</div>'+
+            '</div>';
+        var pc2 = document.getElementById('post-count');
+        if(pc2) pc2.textContent = '0';
+        return;
+    }
     var shown = 0;
     for(var i=0;i<posts.length;i++){
         var p = posts[i];
@@ -1012,11 +1043,11 @@ function addReply(id){
 
 function filterWall(type, btn){
     currentFilter = type;
-    currentClass = 0;   // 回到「墙墙」时同时恢复为全部班级
+    currentClass = ALLOWED_CLASS;   // 回到「墙墙」时恢复为有权限的班级
     document.querySelectorAll('.toolbar-btn').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
-    var allCls = document.querySelector('.cls-btn');
-    if(allCls) allCls.classList.add('active');
+    var defCls = document.getElementById('cls-11');
+    if(defCls) defCls.classList.add('active');
     renderWall();
 }
 
@@ -1026,7 +1057,11 @@ function filterClass(cls, btn){
     document.querySelectorAll('.cls-btn').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     renderWall();
-    setStatus('已切换到 ' + (cls ? CLASS_NAMES[cls] : '全部班级'));
+    if(cls !== ALLOWED_CLASS){
+        setStatus('无权限：无法查看' + (cls ? CLASS_NAMES[cls] : '全部班级'));
+    } else {
+        setStatus('已切换到 ' + CLASS_NAMES[cls]);
+    }
 }
 
 function setStatus(t){ var s=document.getElementById('status-text'); if(s) s.textContent=t; }
