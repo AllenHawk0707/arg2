@@ -172,6 +172,13 @@
         }
         .report-area:focus { border-color: var(--accent); border-width: 2px; padding: 7px 9px; }
 
+        .modal-ok {
+            min-height: 18px;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #107c10;
+        }
+
         /* 无权限提示 */
         .no-perm {
             text-align: center;
@@ -652,11 +659,14 @@
         </div>
         <div class="modal-body">
             <textarea class="report-area" id="report-input" maxlength="500"
-                      placeholder="请描述你遇到的问题…"></textarea>
+                      placeholder="请描述你遇到的问题（至少 20 字）…"></textarea>
             <div class="modal-error" id="report-error"></div>
+            <div class="modal-ok" id="report-ok"></div>
         </div>
         <div class="modal-foot">
-            <button class="mbtn" type="button" onclick="closeReport()">取消</button>
+            <button class="mbtn" type="button" onclick="closeReport()">关闭</button>
+            <button class="mbtn" id="report-rollback" type="button" style="display:none"
+                    onclick="rollbackVersion()">回退旧版本</button>
             <button class="mbtn primary" type="button" onclick="submitReport()">提交</button>
         </div>
     </div>
@@ -908,8 +918,12 @@ function openReport(){
     var mask = document.getElementById('report-mask');
     var inp = document.getElementById('report-input');
     var err = document.getElementById('report-error');
+    var ok = document.getElementById('report-ok');
+    var rb = document.getElementById('report-rollback');
     if(!mask) return;
     if(err) err.textContent = '';
+    if(ok) ok.textContent = '';
+    if(rb) rb.style.display = 'none';
     if(inp){ inp.value = ''; setTimeout(function(){ inp.focus(); }, 30); }
     mask.classList.add('on');
 }
@@ -919,12 +933,28 @@ function closeReport(){
     if(mask) mask.classList.remove('on');
 }
 
+/* 回退到旧版本：把标题栏版本改回 v1.0 */
+function rollbackVersion(){
+    var label = document.querySelector('.mode-label');
+    if(label) label.textContent = '大同中学墙墙 v1.0';
+    closeReport();
+    setStatus('已回退到旧版本 v1.0');
+}
+
 function submitReport(){
     var inp = document.getElementById('report-input');
     var err = document.getElementById('report-error');
+    var ok = document.getElementById('report-ok');
+    var rb = document.getElementById('report-rollback');
     if(!inp) return;
     var text = (inp.value || '').trim();
     if(!text){ if(err) err.textContent = '请先描述你遇到的问题。'; inp.focus(); return; }
+    if(text.length < 20){
+        if(err) err.textContent = '请至少填写 20 字再提交（当前 ' + text.length + ' 字）。';
+        if(ok) ok.textContent = '';
+        inp.focus(); return;
+    }
+    if(err) err.textContent = '';
     try {
         var list = JSON.parse(localStorage.getItem(REPORT_KEY) || '[]');
         if(!Array.isArray(list)) list = [];
@@ -935,8 +965,10 @@ function submitReport(){
         });
         localStorage.setItem(REPORT_KEY, JSON.stringify(list));
     } catch(e){}
-    closeReport();
-    setStatus('问题已提交，感谢反馈');
+    // 提交成功后不关闭窗口，露出「回退旧版本」按钮
+    if(ok) ok.textContent = '提交成功，感谢反馈';
+    if(rb) rb.style.display = 'inline-block';
+    setStatus('问题已提交，可选择「回退旧版本」');
 }
 
 /* 未登录时拦下操作，弹出登录框 */
