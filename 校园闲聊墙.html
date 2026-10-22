@@ -126,6 +126,20 @@
             border-bottom-color: var(--accent);
         }
 
+        /* 班级筛选栏 */
+        .class-bar {
+            padding: 0 8px 0 4px;
+            background-color: var(--surface);
+        }
+        .class-bar-label {
+            display: flex;
+            align-items: center;
+            padding: 0 8px 0 2px;
+            font-size: 12px;
+            color: var(--ink-3);
+        }
+        .class-bar .toolbar-btn { padding: 9px 12px; font-size: 12.5px; }
+
         .content-area {
             background-color: var(--surface);
             border: none;
@@ -603,7 +617,23 @@
 
 <div class="toolbar">
     <button class="toolbar-btn active" onclick="filterWall('all', this)">墙墙</button>
-   
+</div>
+
+<!-- ── 班级筛选：一班 ~ 十一班 ── -->
+<div class="toolbar class-bar">
+    <span class="class-bar-label">班级</span>
+    <button class="toolbar-btn cls-btn active" onclick="filterClass(0, this)">全部</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(1, this)">一班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(2, this)">二班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(3, this)">三班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(4, this)">四班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(5, this)">五班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(6, this)">六班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(7, this)">七班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(8, this)">八班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(9, this)">九班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(10, this)">十班</button>
+    <button class="toolbar-btn cls-btn" onclick="filterClass(11, this)">十一班</button>
 </div>
 
 <div class="content-area" id="wall">
@@ -842,13 +872,18 @@ var posts = (function(){
     var loaded = loadPosts();
     if(loaded) {
         var times = makeFixedTimes(loaded.length);
-        loaded.forEach(function(p, i){ if(!p.createdAt) p.createdAt = times[i]; });
+        // 老数据没有班级字段 → 统一归入十一班
+        loaded.forEach(function(p, i){
+            if(!p.createdAt) p.createdAt = times[i];
+            if(!p.cls) p.cls = 11;
+        });
         return loaded;
     }
     var times = makeFixedTimes(SEED_POSTS.length);
     return SEED_POSTS.map(function(p, i){
         p.id = 'seed_'+(i+1);
         p.createdAt = times[i];
+        p.cls = 11;          // 现有所有帖子都属于十一班
         return p;
     });
 })();
@@ -873,15 +908,21 @@ function relativeTime(ts){
 }
 
 var currentFilter = 'all';
+var currentClass = 0;   // 0 = 全部班级；1~11 = 对应班级
+var DEFAULT_CLASS = 11; // 现有全部帖子归入十一班
+var CLASS_NAMES = ['','一班','二班','三班','四班','五班','六班','七班','八班','九班','十班','十一班'];
 
 function renderWall(){
     var wall = document.getElementById('wall');
-    var meta = '<div class="wall-meta">欢迎来到大同中学墙墙 · 匿名发布 · 文明发言 · 共 <span id="post-count">'+posts.length+'</span> 条留言</div>';
+    var clsLabel = currentClass ? CLASS_NAMES[currentClass] : '全部班级';
+    var meta = '<div class="wall-meta">欢迎来到大同中学墙墙 · 匿名发布 · 文明发言 · '+
+               '当前：'+clsLabel+' · 共 <span id="post-count">'+posts.length+'</span> 条留言</div>';
     var html = meta;
     var shown = 0;
     for(var i=0;i<posts.length;i++){
         var p = posts[i];
         if(currentFilter!=='all' && p.tag!==currentFilter) continue;
+        if(currentClass && (Number(p.cls) || DEFAULT_CLASS) !== currentClass) continue;
         shown++;
         var tagCls = p.tag==='love' ? 'post-tag hot' : (p.tag==='tree' ? 'post-tag tree' : 'post-tag');
         var repliesHtml = '';
@@ -971,9 +1012,21 @@ function addReply(id){
 
 function filterWall(type, btn){
     currentFilter = type;
+    currentClass = 0;   // 回到「墙墙」时同时恢复为全部班级
     document.querySelectorAll('.toolbar-btn').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
+    var allCls = document.querySelector('.cls-btn');
+    if(allCls) allCls.classList.add('active');
     renderWall();
+}
+
+/* 切换班级：0=全部，1~11=对应班级 */
+function filterClass(cls, btn){
+    currentClass = cls;
+    document.querySelectorAll('.cls-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    renderWall();
+    setStatus('已切换到 ' + (cls ? CLASS_NAMES[cls] : '全部班级'));
 }
 
 function setStatus(t){ var s=document.getElementById('status-text'); if(s) s.textContent=t; }
