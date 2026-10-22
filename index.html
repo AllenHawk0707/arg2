@@ -703,7 +703,7 @@
 <div class="toolbar class-bar">
     <span class="class-bar-label">班级</span>
     <button class="toolbar-btn cls-btn active" onclick="filterClass(0, this)">全部</button>
-    <button class="toolbar-btn cls-btn" onclick="filterClass(1, this)">一班</button>
+    <button class="toolbar-btn cls-btn" id="cls-1" onclick="filterClass(1, this)">一班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(2, this)">二班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(3, this)">三班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(4, this)">四班</button>
@@ -937,13 +937,13 @@ function closeReport(){
 function rollbackVersion(){
     var label = document.querySelector('.mode-label');
     if(label) label.textContent = '大同中学墙墙 v1.1';
-    var btn = document.getElementById('cls-11');
-    if(btn){
-        btn.style.display = '';       // 重新出现十一班栏目
-        filterClass(11, btn);         // 并直接切到该栏目
-    }
+    var btn11 = document.getElementById('cls-11');
+    if(btn11) btn11.style.display = '';   // 十一班栏目重新出现（但不自动进入）
+    var btn1 = document.getElementById('cls-1');
+    if(btn1) filterClass(1, btn1);        // 停留在「一班」栏目
+    if(window.stopVirusFX) window.stopVirusFX();   // 关闭红色入侵效果
     closeReport();
-    setStatus('已回退到旧版本 v1.1，十一班栏目已恢复');
+    setStatus('已回退到旧版本 v1.1');
 }
 
 function submitReport(){
@@ -1511,6 +1511,16 @@ document.getElementById('report-mask').addEventListener('click', function(e){
             }
         }
     });
+
+    /* 供「回退旧版本」调用：彻底关闭并清除所有病毒特效 */
+    window.stopVirusFX = function(){
+        enabled = false;
+        fx.innerHTML = '';
+        flash.classList.remove('on');
+        noise.innerHTML = '';
+        if(progEl) progEl.classList.remove('show');
+        clearTimeout(timer); clearTimeout(progTimer); clearTimeout(noiseTimer);
+    };
 
     schedule();
     progTimer = setTimeout(showProgress, 2500);
