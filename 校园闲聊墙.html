@@ -140,6 +140,38 @@
         }
         .class-bar .toolbar-btn { padding: 9px 12px; font-size: 12.5px; }
 
+        /* ── 报告问题按钮 ── */
+        .report-btn {
+            margin-left: 10px;
+            padding: 3px 10px;
+            font-family: var(--sans);
+            font-size: 11.5px;
+            color: var(--ink-2);
+            background-color: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .report-btn:hover {
+            color: #fff;
+            background-color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .report-area {
+            width: 100%;
+            min-height: 96px;
+            padding: 8px 10px;
+            font-family: var(--sans);
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--ink);
+            border: 1px solid var(--border);
+            outline: none;
+            resize: vertical;
+        }
+        .report-area:focus { border-color: var(--accent); border-width: 2px; padding: 7px 9px; }
+
         /* 无权限提示 */
         .no-perm {
             text-align: center;
@@ -583,6 +615,7 @@
 <div class="xp-window">
     <div class="window-title">
         <span class="mode-label">大同中学墙墙 v1.4</span>
+        <button class="report-btn" type="button" onclick="openReport()">报告问题</button>
     </div>
     <div class="window-buttons">
         <div class="user-area" id="user-area"></div>
@@ -606,6 +639,25 @@
         </div>
         <div class="modal-foot">
             <button class="mbtn primary" type="button" onclick="closeNotice()">我知道了</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── 报告问题弹窗 ── -->
+<div class="modal-mask" id="report-mask">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="report-title">
+        <div class="modal-head">
+            <span id="report-title">报告问题</span>
+            <button class="modal-close" type="button" onclick="closeReport()">✕</button>
+        </div>
+        <div class="modal-body">
+            <textarea class="report-area" id="report-input" maxlength="500"
+                      placeholder="请描述你遇到的问题…"></textarea>
+            <div class="modal-error" id="report-error"></div>
+        </div>
+        <div class="modal-foot">
+            <button class="mbtn" type="button" onclick="closeReport()">取消</button>
+            <button class="mbtn primary" type="button" onclick="submitReport()">提交</button>
         </div>
     </div>
 </div>
@@ -847,6 +899,44 @@ function doLogout(){
     saveUser(null);
     renderUserArea();
     setStatus('已退出登录');
+}
+
+/* ── 报告问题 ── */
+var REPORT_KEY = 'xyzh_wall_reports_v1';
+
+function openReport(){
+    var mask = document.getElementById('report-mask');
+    var inp = document.getElementById('report-input');
+    var err = document.getElementById('report-error');
+    if(!mask) return;
+    if(err) err.textContent = '';
+    if(inp){ inp.value = ''; setTimeout(function(){ inp.focus(); }, 30); }
+    mask.classList.add('on');
+}
+
+function closeReport(){
+    var mask = document.getElementById('report-mask');
+    if(mask) mask.classList.remove('on');
+}
+
+function submitReport(){
+    var inp = document.getElementById('report-input');
+    var err = document.getElementById('report-error');
+    if(!inp) return;
+    var text = (inp.value || '').trim();
+    if(!text){ if(err) err.textContent = '请先描述你遇到的问题。'; inp.focus(); return; }
+    try {
+        var list = JSON.parse(localStorage.getItem(REPORT_KEY) || '[]');
+        if(!Array.isArray(list)) list = [];
+        list.push({
+            text: text,
+            user: currentUser ? currentUser.id : '匿名',
+            at: nowStr()
+        });
+        localStorage.setItem(REPORT_KEY, JSON.stringify(list));
+    } catch(e){}
+    closeReport();
+    setStatus('问题已提交，感谢反馈');
 }
 
 /* 未登录时拦下操作，弹出登录框 */
@@ -1094,6 +1184,9 @@ document.getElementById('login-mask').addEventListener('click', function(e){
 });
 document.getElementById('notice-mask').addEventListener('click', function(e){
     if(e.target === this) closeNotice();
+});
+document.getElementById('report-mask').addEventListener('click', function(e){
+    if(e.target === this) closeReport();
 });
 
 /* ══ 「病毒入侵」视觉效果：时不时闪现红色代码 ══
