@@ -659,7 +659,7 @@
         </div>
         <div class="modal-body">
             <textarea class="report-area" id="report-input" maxlength="500"
-                      placeholder="请描述你遇到的问题（至少 20 字）…"></textarea>
+                      placeholder="请描述你遇到的问题…"></textarea>
             <div class="modal-error" id="report-error"></div>
             <div class="modal-ok" id="report-ok"></div>
         </div>
@@ -949,11 +949,7 @@ function submitReport(){
     if(!inp) return;
     var text = (inp.value || '').trim();
     if(!text){ if(err) err.textContent = '请先描述你遇到的问题。'; inp.focus(); return; }
-    if(text.length < 20){
-        if(err) err.textContent = '请至少填写 20 字再提交（当前 ' + text.length + ' 字）。';
-        if(ok) ok.textContent = '';
-        inp.focus(); return;
-    }
+    var enough = (text.length >= 20);   // 内容够长才给出「回退旧版本」选项
     if(err) err.textContent = '';
     try {
         var list = JSON.parse(localStorage.getItem(REPORT_KEY) || '[]');
@@ -965,10 +961,15 @@ function submitReport(){
         });
         localStorage.setItem(REPORT_KEY, JSON.stringify(list));
     } catch(e){}
-    // 提交成功后不关闭窗口，露出「回退旧版本」按钮
-    if(ok) ok.textContent = '提交成功，感谢反馈';
-    if(rb) rb.style.display = 'inline-block';
-    setStatus('问题已提交，可选择「回退旧版本」');
+    if(enough){
+        // 内容较长：留在窗口并露出「回退旧版本」按钮
+        if(ok) ok.textContent = '提交成功，感谢反馈';
+        if(rb) rb.style.display = 'inline-block';
+        setStatus('问题已提交');
+    } else {
+        closeReport();
+        setStatus('问题已提交，感谢反馈');
+    }
 }
 
 /* 未登录时拦下操作，弹出登录框 */
