@@ -702,7 +702,7 @@
 <!-- ── 班级筛选：一班 ~ 十一班 ── -->
 <div class="toolbar class-bar">
     <span class="class-bar-label">班级</span>
-    <button class="toolbar-btn cls-btn" onclick="filterClass(0, this)">全部</button>
+    <button class="toolbar-btn cls-btn active" onclick="filterClass(0, this)">全部</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(1, this)">一班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(2, this)">二班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(3, this)">三班</button>
@@ -713,7 +713,7 @@
     <button class="toolbar-btn cls-btn" onclick="filterClass(8, this)">八班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(9, this)">九班</button>
     <button class="toolbar-btn cls-btn" onclick="filterClass(10, this)">十班</button>
-    <button class="toolbar-btn cls-btn active" id="cls-11" onclick="filterClass(11, this)">十一班</button>
+    <button class="toolbar-btn cls-btn" id="cls-11" style="display:none" onclick="filterClass(11, this)">十一班</button>
 </div>
 
 <div class="content-area" id="wall">
@@ -933,12 +933,17 @@ function closeReport(){
     if(mask) mask.classList.remove('on');
 }
 
-/* 回退到旧版本：把标题栏版本改回 v1.0 */
+/* 回退到旧版本：版本号改为 v1.1，并恢复十一班栏目 */
 function rollbackVersion(){
     var label = document.querySelector('.mode-label');
-    if(label) label.textContent = '大同中学墙墙 v1.0';
+    if(label) label.textContent = '大同中学墙墙 v1.1';
+    var btn = document.getElementById('cls-11');
+    if(btn){
+        btn.style.display = '';       // 重新出现十一班栏目
+        filterClass(11, btn);         // 并直接切到该栏目
+    }
     closeReport();
-    setStatus('已回退到旧版本 v1.0');
+    setStatus('已回退到旧版本 v1.1，十一班栏目已恢复');
 }
 
 function submitReport(){
@@ -1049,7 +1054,7 @@ function relativeTime(ts){
 }
 
 var currentFilter = 'all';
-var currentClass = 11;   // 0 = 全部班级；1~11 = 对应班级（默认十一班）
+var currentClass = 0;    // 0 = 全部班级；1~11 = 对应班级（初始停在「全部」= 无权限视图）
 var DEFAULT_CLASS = 11;  // 现有全部帖子归入十一班
 var ALLOWED_CLASS = 11;  // 仅有权限查看的班级，其余班级点击后显示「无权限」
 var CLASS_NAMES = ['','一班','二班','三班','四班','五班','六班','七班','八班','九班','十班','十一班'];
@@ -1166,10 +1171,10 @@ function addReply(id){
 
 function filterWall(type, btn){
     currentFilter = type;
-    currentClass = ALLOWED_CLASS;   // 回到「墙墙」时恢复为有权限的班级
+    currentClass = 0;   // 回到「墙墙」时恢复为「全部」（不会绕过回退直接放行）
     document.querySelectorAll('.toolbar-btn').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
-    var defCls = document.getElementById('cls-11');
+    var defCls = document.querySelector('.cls-btn');   // 第一个即「全部」
     if(defCls) defCls.classList.add('active');
     renderWall();
 }
