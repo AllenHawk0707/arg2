@@ -1,12 +1,14 @@
-/* 构建脚本：把 校园闲聊墙.html（本地源码）混淆后生成 index.html（线上发布版）
+/* 构建脚本：把本地可读源码混淆后生成线上发布版
    用法：node build.js
-   注意：源码文件不上传 GitHub，线上只发布混淆后的 index.html */
+   注意：源码文件不上传 GitHub，线上只发布混淆后的产物 */
 const fs = require('fs');
-const path = require('path');
 const JavaScriptObfuscator = require('javascript-obfuscator');
 
-const SRC = '校园闲聊墙.html';
-const OUT = 'index.html';
+/* 源码 → 线上文件 的对应关系 */
+const TARGETS = [
+    { src: '校园闲聊墙.html', out: 'index.html' },
+    { src: '校园万事通.html', out: 'wanshitong.html' }
+];
 
 const options = {
     compact: true,
@@ -37,24 +39,26 @@ const options = {
 };
 
 function build(){
-    const src = fs.readFileSync(SRC, 'utf8');
-    const re = /<script>([\s\S]*?)<\/script>/;
-    const m = src.match(re);
-    if(!m){ console.error('未找到 script 块'); process.exit(1); }
+    TARGETS.forEach(function(t){
+        if(!fs.existsSync(t.src)){ console.log('跳过（源码不存在）:', t.src); return; }
+        const src = fs.readFileSync(t.src, 'utf8');
+        const re = /<script>([\s\S]*?)<\/script>/;
+        const m = src.match(re);
+        if(!m){ console.error(t.src, '未找到 script 块'); return; }
 
-    const before = m[1].length;
-    const obfuscated = JavaScriptObfuscator.obfuscate(m[1], options).getObfuscatedCode();
-    const html = src.replace(re, () => '<script>' + obfuscated + '</script>');
-    fs.writeFileSync(OUT, html, 'utf8');
+        const before = m[1].length;
+        const obfuscated = JavaScriptObfuscator.obfuscate(m[1], options).getObfuscatedCode();
+        fs.writeFileSync(t.out, src.replace(re, () => '<script>' + obfuscated + '</script>'), 'utf8');
 
-    // 语法自检
-    const check = fs.readFileSync(OUT, 'utf8').match(re);
-    try { new Function(check[1]); } catch(e){ console.error('输出语法错误:', e.message); process.exit(1); }
+        // 语法自检
+        const check = fs.readFileSync(t.out, 'utf8').match(re);
+        try { new Function(check[1]); } catch(e){ console.error(t.out, '输出语法错误:', e.message); process.exit(1); }
 
-    console.log('原始 JS:', before, '字符');
-    console.log('混淆后 :', obfuscated.length, '字符');
-    console.log('index.html 总大小:', (fs.statSync(OUT).size/1024).toFixed(1), 'KB');
-    console.log('语法自检通过');
+        console.log(t.src, '→', t.out,
+            '| JS', before, '→', obfuscated.length,
+            '| 页面', (fs.statSync(t.out).size / 1024).toFixed(1), 'KB');
+    });
+    console.log('全部构建完成，语法自检通过');
 }
 
 build();
