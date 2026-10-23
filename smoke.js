@@ -52,6 +52,8 @@ setTimeout(function(){
 
     // 漂流瓶：错误密码 → 关闭页面；正确密码 → 黑屏白球
     try {
+        var bb = d.getElementById('bottle-btn');
+        console.log('渡口图标本次是否出现:', !!(bb && bb.style.display !== 'none'));
         dom.window.openBottle();
         console.log('渡口弹窗打开:', d.getElementById('bottle-mask').classList.contains('on'));
         console.log('标题:', d.getElementById('bottle-title').textContent);
