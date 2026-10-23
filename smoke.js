@@ -19,6 +19,25 @@ const dom = new JSDOM(html, {
     virtualConsole: vc
 });
 
+/* 单独实例测「捕捉白球 → 转场」：必须赶在崩溃序列的 forceClosePage 之前，
+   因为 jsdom 的 window.close() 会停掉该窗口的全部定时器 */
+const dom2 = new JSDOM(html, {
+    runScripts: 'dangerously', pretendToBeVisual: true,
+    url: 'https://allenhawk0707.github.io/arg2/', virtualConsole: vc
+});
+setTimeout(function(){
+    try {
+        dom2.window.enterBottle();
+        const d2 = dom2.window.document;
+        const b2 = d2.querySelector('#bottle-scene .ball');
+        b2.dispatchEvent(new dom2.window.MouseEvent('click', { bubbles: true }));
+        console.log('[捕捉] caught 标记:', b2.classList.contains('caught'));
+        setTimeout(function(){
+            console.log('[捕捉] 转场白光层出现:', !!d2.querySelector('.dukou-wipe'));
+        }, 700);
+    } catch(e){ errors.push('捕捉测试异常: ' + e.message); }
+}, 900);
+
 setTimeout(function(){
     const d = dom.window.document;
     const posts = d.querySelectorAll('.wall-post').length;
@@ -83,12 +102,7 @@ setTimeout(function(){
         console.log('场景崩溃状态:', (d.getElementById('bottle-scene') || {}).classList ?
             d.getElementById('bottle-scene').classList.contains('crash') : false);
 
-        // 捕捉白球：点上去应标记 caught
-        var ballEl2 = d.querySelector('#bottle-scene .ball');
-        ballEl2.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-        console.log('点击白球后 caught:', ballEl2.classList.contains('caught'));
-
-        // 最后再测错误密码（会触发 window.close，jsdom 下定时器失效）
+        // 最后再测错误密码（会触发 window.close，jsdom 下定时器失效，故放最末）
         dom.window.openBottle();
         d.getElementById('bottle-pwd').value = '111';
         dom.window.submitBottle();
