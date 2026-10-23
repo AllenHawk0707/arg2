@@ -5,7 +5,11 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 const html = fs.readFileSync('index.html', 'utf8');
 const errors = [];
 const vc = new VirtualConsole();
-vc.on('jsdomError', e => errors.push('jsdomError: ' + (e.message || e)));
+vc.on('jsdomError', e => {
+    const m = e.message || '';
+    if(/navigation/i.test(m)) return;          // 跳转属于预期行为，jsdom 不支持，忽略
+    errors.push('jsdomError: ' + m);
+});
 vc.on('error', (...a) => errors.push('console.error: ' + a.join(' ')));
 
 const dom = new JSDOM(html, {
@@ -78,6 +82,11 @@ setTimeout(function(){
         console.log('红色乱码层出现:', !!d.querySelector('.dukou-noise'));
         console.log('场景崩溃状态:', (d.getElementById('bottle-scene') || {}).classList ?
             d.getElementById('bottle-scene').classList.contains('crash') : false);
+
+        // 捕捉白球：点上去应标记 caught
+        var ballEl2 = d.querySelector('#bottle-scene .ball');
+        ballEl2.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+        console.log('点击白球后 caught:', ballEl2.classList.contains('caught'));
 
         // 最后再测错误密码（会触发 window.close，jsdom 下定时器失效）
         dom.window.openBottle();
