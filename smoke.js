@@ -50,6 +50,18 @@ setTimeout(function(){
         console.log('当前视图是否无权限:', !!d.querySelector('.no-perm'));
     } catch(e){ errors.push('交互测试异常: ' + e.message); }
 
+    // 漂流瓶：错误密码 → 关闭页面；正确密码 → 黑屏白球
+    try {
+        dom.window.openBottle();
+        console.log('漂流瓶弹窗打开:', d.getElementById('bottle-mask').classList.contains('on'));
+        d.getElementById('bottle-pwd').value = '111';
+        dom.window.submitBottle();
+        console.log('错误密码后弹窗已关:', !d.getElementById('bottle-mask').classList.contains('on'));
+        dom.window.enterBottle();
+        console.log('黑屏场景存在:', !!d.getElementById('bottle-scene'));
+        console.log('白球存在:', !!d.querySelector('#bottle-scene .ball'));
+    } catch(e){ errors.push('漂流瓶测试异常: ' + e.message); }
+
     console.log('运行期错误:', errors.length ? errors : '无');
     process.exit(0);
 }, 2500);
