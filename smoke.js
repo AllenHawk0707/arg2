@@ -53,8 +53,13 @@ setTimeout(function(){
     // 漂流瓶：错误密码 → 关闭页面；正确密码 → 黑屏白球
     try {
         dom.window.openBottle();
-        console.log('漂流瓶弹窗打开:', d.getElementById('bottle-mask').classList.contains('on'));
-        d.getElementById('bottle-pwd').value = '111';
+        console.log('渡口弹窗打开:', d.getElementById('bottle-mask').classList.contains('on'));
+        console.log('标题:', d.getElementById('bottle-title').textContent);
+        var bp = d.getElementById('bottle-pwd');
+        bp.value = '63';
+        bp.dispatchEvent(new dom.window.Event('input'));
+        console.log('输入两位后已填下划线数:', d.querySelectorAll('#dukou-slots .dukou-slot.filled').length);
+        bp.value = '111';
         dom.window.submitBottle();
         console.log('错误密码后弹窗已关:', !d.getElementById('bottle-mask').classList.contains('on'));
         dom.window.enterBottle();
