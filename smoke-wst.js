@@ -23,7 +23,8 @@ function search(kw){
 
 setTimeout(function(){
     console.log('标题:', d.title);
-    console.log('总收录数:', d.getElementById('total-count').textContent);
+    console.log('顶部信息条:', d.querySelector('.wall-meta').textContent.trim());
+    console.log('是否残留收录计数:', /共收录|条公告/.test(d.querySelector('.wall-meta').textContent));
 
     // 原有 + 新增关键词
     ['食堂', '秦主任', '冷库',
