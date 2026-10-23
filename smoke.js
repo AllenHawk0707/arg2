@@ -59,14 +59,27 @@ setTimeout(function(){
         bp.value = '63';
         bp.dispatchEvent(new dom.window.Event('input'));
         console.log('输入两位后已填下划线数:', d.querySelectorAll('#dukou-slots .dukou-slot.filled').length);
-        bp.value = '111';
-        dom.window.submitBottle();
-        console.log('错误密码后弹窗已关:', !d.getElementById('bottle-mask').classList.contains('on'));
+        // 注意：错误密码测试必须放在最后 —— jsdom 的 window.close() 会停掉该窗口所有定时器
         dom.window.enterBottle();
         console.log('黑屏场景存在:', !!d.getElementById('bottle-scene'));
         console.log('白球存在:', !!d.querySelector('#bottle-scene .ball'));
     } catch(e){ errors.push('漂流瓶测试异常: ' + e.message); }
 
     console.log('运行期错误:', errors.length ? errors : '无');
-    process.exit(0);
+
+    // 等进入黑屏后 7.7s 的崩溃序列
+    setTimeout(function(){
+        var ballEl = d.querySelector('#bottle-scene .ball');
+        console.log('白球已变红:', !!(ballEl && ballEl.classList.contains('red')));
+        console.log('红色乱码层出现:', !!d.querySelector('.dukou-noise'));
+        console.log('场景崩溃状态:', (d.getElementById('bottle-scene') || {}).classList ?
+            d.getElementById('bottle-scene').classList.contains('crash') : false);
+
+        // 最后再测错误密码（会触发 window.close，jsdom 下定时器失效）
+        dom.window.openBottle();
+        d.getElementById('bottle-pwd').value = '111';
+        dom.window.submitBottle();
+        console.log('错误密码后弹窗已关:', !d.getElementById('bottle-mask').classList.contains('on'));
+        process.exit(0);
+    }, 11000);
 }, 2500);
