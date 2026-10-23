@@ -65,6 +65,8 @@ setTimeout(function(){
         dom.window.enterBottle();
         console.log('黑屏场景存在:', !!d.getElementById('bottle-scene'));
         console.log('白球存在:', !!d.querySelector('#bottle-scene .ball'));
+        var bs = dom.window.getComputedStyle(d.querySelector('#bottle-scene .ball'));
+        console.log('白球可见性(尺寸/背景/定位):', bs.width, bs.height, bs.backgroundColor, bs.position);
     } catch(e){ errors.push('漂流瓶测试异常: ' + e.message); }
 
     console.log('运行期错误:', errors.length ? errors : '无');
