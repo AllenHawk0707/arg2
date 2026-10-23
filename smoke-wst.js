@@ -51,6 +51,14 @@ setTimeout(function(){
     var r = d.querySelector('.redacted');
     console.log('涂抹块内容/样式:', r ? r.textContent + ' / ' + dom.window.getComputedStyle(r).color : '(无)');
 
+    // 发布时间应渲染为黑块
+    search('郭明轩');
+    var blk = d.querySelector('.blk');
+    console.log('黑块数量:', d.querySelectorAll('.blk').length);
+    console.log('黑块内容/底色/文字色:', blk ? (blk.textContent + ' / ' +
+        dom.window.getComputedStyle(blk).backgroundColor + ' / ' +
+        dom.window.getComputedStyle(blk).color) : '(无)');
+
     console.log('返回墙墙链接:', (d.querySelector('.statusbar a') || {}).getAttribute ?
         d.querySelector('.statusbar a').getAttribute('href') : '(无)');
     console.log('运行期错误:', errors.length ? errors : '无');
