@@ -4,5 +4,6 @@ test-api.js
 node_modules/
 package-lock.json
 
-# 本地可读源码，不上传（线上只发布混淆后的 index.html）
+# 本地可读源码，不上传（线上只发布混淆后的产物）
 校园闲聊墙.html
+校园万事通.html
