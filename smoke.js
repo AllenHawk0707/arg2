@@ -92,6 +92,18 @@ setTimeout(function(){
         console.log('白球可见性(尺寸/背景/定位):', bs.width, bs.height, bs.backgroundColor, bs.position);
     } catch(e){ errors.push('漂流瓶测试异常: ' + e.message); }
 
+    // 广告弹窗（VLC 提示）
+    try {
+        console.log('广告弹窗存在:', !!d.getElementById('ad-mask'));
+        dom.window.openAd();
+        console.log('广告弹窗可打开:', d.getElementById('ad-mask').classList.contains('on'));
+        var adLink = d.querySelector('#ad-mask a');
+        console.log('广告网址:', adLink ? adLink.textContent + ' → ' + adLink.getAttribute('href') : '(无)');
+        console.log('广告标题:', d.getElementById('ad-title').textContent);
+        dom.window.closeAd();
+        console.log('广告弹窗可关闭:', !d.getElementById('ad-mask').classList.contains('on'));
+    } catch(e){ errors.push('广告测试异常: ' + e.message); }
+
     console.log('运行期错误:', errors.length ? errors : '无');
 
     // 等进入黑屏后 7.7s 的崩溃序列
