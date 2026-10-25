@@ -7,7 +7,8 @@ const JavaScriptObfuscator = require('javascript-obfuscator');
 /* 源码 → 线上文件 的对应关系 */
 const TARGETS = [
     { src: '校园闲聊墙.html', out: 'index.html' },
-    { src: '校园万事通.html', out: 'wanshitong.html' }
+    { src: '校园万事通.html', out: 'wanshitong.html' },
+    { src: '音频页.html', out: 'audio.html' }
 ];
 
 const options = {
