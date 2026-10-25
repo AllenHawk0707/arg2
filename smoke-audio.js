@@ -27,8 +27,8 @@ function type(v){
 
 setTimeout(function(){
     console.log('标题:', d.title);
-    console.log('二维码图片存在:', !!d.querySelector('.qr-img'));
-    console.log('二维码指向:', d.querySelector('.qr-img').getAttribute('src'));
+    console.log('页面内是否含二维码(应为 false):', !!d.querySelector('.qr-img'),
+        '| HTML 里是否残留 qr-audio 引用:', d.body.innerHTML.indexOf('qr-audio') >= 0);
     console.log('下划线数量:', d.querySelectorAll('.pw-slot').length);
 
     // 错误密码
