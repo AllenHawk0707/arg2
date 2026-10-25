@@ -8,3 +8,6 @@ package-lock.json
 校园闲聊墙.html
 校园万事通.html
 音频页.html
+
+# 原始音频（未加密），只留在本地；线上只发布加密后的 a1k9f2.enc
+a1k9f2.mp3

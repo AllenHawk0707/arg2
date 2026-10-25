@@ -1,4 +1,7 @@
-/* 冒烟测试：加载混淆版 audio.html，验证二维码与密码解锁 */
+/* 冒烟测试：音频页加密体系
+   1) 内置 SHA-256 是否与标准一致
+   2) 密码错误 → 解密校验失败提示
+   3) 密码正确 → 从线上拉取密文解密后生成 blob 播放地址 */
 const fs = require('fs');
 const { JSDOM, VirtualConsole } = require('jsdom');
 
@@ -6,7 +9,7 @@ const errors = [];
 const vc = new VirtualConsole();
 vc.on('jsdomError', e => {
     const m = e.message || '';
-    if(/HTMLMediaElement|navigation/i.test(m)) return;   // jsdom 不支持真实播放/跳转，忽略
+    if(/HTMLMediaElement|navigation|Error: Cross origin|Not implemented/i.test(m)) return;
     errors.push('jsdomError: ' + m);
 });
 vc.on('error', (...a) => errors.push('console.error: ' + a.join(' ')));
@@ -27,34 +30,37 @@ function type(v){
 
 setTimeout(function(){
     console.log('标题:', d.title);
-    console.log('页面内是否含二维码(应为 false):', !!d.querySelector('.qr-img'),
-        '| HTML 里是否残留 qr-audio 引用:', d.body.innerHTML.indexOf('qr-audio') >= 0);
     console.log('下划线数量:', d.querySelectorAll('.pw-slot').length);
 
-    // 错误密码
-    type('ABCDEF');
-    dom.window.submitPw();
-    console.log('错误密码提示:', d.getElementById('pw-error').textContent);
-    console.log('错误密码后播放器隐藏:', d.getElementById('player-box').style.display === 'none');
+    // 1) 内置哈希实现自测
+    console.log('SHA256("abc") 正确:', dom.window.sha256('abc') ===
+        'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+    console.log('SHA256("632") 正确:', dom.window.sha256('632') ===
+        '3bcc1340d90b3d55accb9a57998b69708fea2a63c39f7369047469f952ccad4f');
 
-    // 位数不足
+    // 2) 位数不足
     type('MQC');
     dom.window.submitPw();
     console.log('位数不足提示:', d.getElementById('pw-error').textContent);
 
-    // 正确密码（小写也应通过，会自动转大写）
-    type('mqcefk');
+    // 3) 错误密码：解密校验失败
+    type('AAAAAA');
     dom.window.submitPw();
-    console.log('正确密码后输入框已隐藏:', d.getElementById('pw-box').style.display === 'none');
-    console.log('播放器已显示:', d.getElementById('player-box').style.display !== 'none');
-    console.log('音频源:', d.getElementById('audio-player').getAttribute('src'));
-    console.log('下载链接:', (d.querySelector('#audio-dl a') || {}).getAttribute ?
-        d.querySelector('#audio-dl a').getAttribute('href') : '(无)');
-    console.log('兜底播放按钮存在:', !!d.getElementById('audio-play'));
-    console.log('全局函数 playAudio:', typeof dom.window.playAudio);
-    console.log('输入字符被转为大写:', d.getElementById('pw-input').value);
+    setTimeout(function(){
+        console.log('错误密码提示:', d.getElementById('pw-error').textContent);
+        console.log('错误密码后播放器隐藏:', d.getElementById('player-box').style.display === 'none');
 
-    console.log('返回墙墙链接:', d.querySelector('.statusbar a').getAttribute('href'));
-    console.log('运行期错误:', errors.length ? errors : '无');
-    process.exit(0);
+        // 4) 正确密码：拉取密文并解密
+        type('MQCEFK');
+        dom.window.submitPw();
+        setTimeout(function(){
+            var player = d.getElementById('audio-player');
+            console.log('解密后播放地址(应为 blob:):', (player.getAttribute('src') || '').slice(0, 12));
+            console.log('密码框已隐藏:', d.getElementById('pw-box').style.display === 'none');
+            console.log('提示文字:', d.getElementById('audio-msg').textContent || '(空)');
+            console.log('错误提示:', d.getElementById('pw-error').textContent || '(空)');
+            console.log('运行期错误:', errors.length ? errors : '无');
+            process.exit(0);
+        }, 4500);
+    }, 4500);
 }, 900);
