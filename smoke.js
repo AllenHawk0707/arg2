@@ -55,6 +55,18 @@ setTimeout(function(){
     console.log('全局函数 rollbackVersion:', typeof dom.window.rollbackVersion);
     console.log('全局函数 openReport:', typeof dom.window.openReport);
 
+    // 登录：任何密码（当前没有正确密码）都应提示「密码错误」且不登录
+    try {
+        dom.window.openLogin();
+        d.getElementById('login-input').value = '测试用户';
+        d.getElementById('login-pwd').value = 'abc12345';
+        dom.window.submitLogin();
+        console.log('错误密码提示:', d.getElementById('login-error').textContent);
+        console.log('错误密码后未登录:', !d.getElementById('user-name') ||
+            !d.getElementById('user-name').textContent);
+        dom.window.closeLogin();
+    } catch(e){ errors.push('登录测试异常: ' + e.message); }
+
     // 模拟：打开报告 → 输入 25 字 → 提交 → 回退
     try {
         dom.window.openReport();
