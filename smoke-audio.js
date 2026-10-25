@@ -48,6 +48,10 @@ setTimeout(function(){
     console.log('正确密码后输入框已隐藏:', d.getElementById('pw-box').style.display === 'none');
     console.log('播放器已显示:', d.getElementById('player-box').style.display !== 'none');
     console.log('音频源:', d.getElementById('audio-player').getAttribute('src'));
+    console.log('下载链接:', (d.querySelector('#audio-dl a') || {}).getAttribute ?
+        d.querySelector('#audio-dl a').getAttribute('href') : '(无)');
+    console.log('兜底播放按钮存在:', !!d.getElementById('audio-play'));
+    console.log('全局函数 playAudio:', typeof dom.window.playAudio);
     console.log('输入字符被转为大写:', d.getElementById('pw-input').value);
 
     console.log('返回墙墙链接:', d.querySelector('.statusbar a').getAttribute('href'));
