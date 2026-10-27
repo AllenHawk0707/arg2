@@ -44,8 +44,8 @@ setTimeout(function(){
     console.log('是否残留板块标签:', !!d.querySelector('.news-section'));
     console.log('是否残留「板块二」字样:', /板块二|后勤保障/.test(d.getElementById('news-list').textContent));
 
-    // 名字涂抹
-    search('周某某');
+    // 名字涂抹（只按标题检索，所以用标题里的词）
+    search('表彰');
     var cards = d.querySelectorAll('.news-card');
     console.log('表彰公告卡片数:', cards.length);
     console.log('涂抹块数量:', d.querySelectorAll('.redacted').length);
