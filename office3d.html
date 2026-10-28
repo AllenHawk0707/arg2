@@ -1,0 +1,3167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>秦主任办公室</title>
+<style>
+    :root {
+        --accent: #0078d7;
+        --accent-d: #0063b1;
+        --surface: #ffffff;
+        --border: #d2d2d2;
+        --border-2: #e5e5e5;
+        --ink: #1f1f1f;
+        --ink-2: #555555;
+        --ink-3: #8a8a8a;
+        --sans: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+        font-family: var(--sans);
+        font-size: 13px;
+        color: var(--ink);
+        background: #05070a;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    #scene { display: block; width: 100%; height: 100%; cursor: grab; }
+    #scene.locked { cursor: none; }
+    #scene.dragging { cursor: grabbing; }
+
+    /* ── 顶栏：压暗，尽量不破坏夜视感 ── */
+    .topbar {
+        position: fixed; top: 10px; left: 10px; right: 10px;
+        display: flex; align-items: center; gap: 10px;
+        height: 32px; padding: 0 4px 0 12px;
+        background: rgba(9, 11, 15, .7);
+        border: 1px solid #1c2028;
+        backdrop-filter: blur(6px);
+        pointer-events: auto;
+        z-index: 8;
+        opacity: .82;
+        transition: opacity .4s ease;
+    }
+    .topbar:hover { opacity: 1; }
+    .topbar .t { font-size: 12px; letter-spacing: .3px; color: #7f868e; }
+    .topbar .dot { width: 7px; height: 7px; border-radius: 50%; background: #7a1f1f; margin-right: 2px; box-shadow: 0 0 7px #a82929; }
+    .topbar .spacer { flex: 1; }
+    .btn {
+        height: 26px; padding: 0 12px;
+        font-family: var(--sans); font-size: 12px;
+        color: #8d949c; background: rgba(18, 21, 26, .9);
+        border: 1px solid #262b33; cursor: pointer;
+    }
+    .btn:hover { background: #1a1e24; color: #c7ced5; }
+    .btn.primary { color: #ccd4dc; background: #1b222c; border-color: #2c3542; }
+    .btn.primary:hover { background: #232c38; }
+    a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+
+    /* ── 暗角 / 噪点层 ── */
+    #vig {
+        position: fixed; inset: 0; z-index: 6; pointer-events: none;
+        background:
+            radial-gradient(ellipse 76% 66% at 50% 50%, rgba(0,0,0,0) 38%, rgba(0,0,0,.58) 78%, rgba(0,0,0,.95) 100%),
+            linear-gradient(rgba(6,12,22,.10), rgba(1,3,7,.18));
+    }
+    #flick { position: fixed; inset: 0; z-index: 7; pointer-events: none; background: #cfe0f5; opacity: 0; }
+
+    /* ── 开场字幕（自动淡出） ── */
+    #intro {
+        position: fixed; inset: 0; z-index: 9;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 20px; text-align: center; pointer-events: none;
+        color: #aab3bd; letter-spacing: 3px;
+        text-shadow: 0 0 18px rgba(0,0,0,.9);
+        transition: opacity 2.4s ease;
+    }
+    #intro .l1 { font-size: 15px; }
+    #intro .l2 { font-size: 12px; color: #626a73; letter-spacing: 2px; line-height: 2.1; }
+    #intro.gone { opacity: 0; }
+
+    /* ── 遮罩 ── */
+    #mask {
+        position: fixed; inset: 0; z-index: 20;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        background: #05070a;
+        transition: opacity .9s ease;
+    }
+    #mask.hide { opacity: 0; pointer-events: none; }
+    #mask .title { font-size: 14px; color: #aab3bd; letter-spacing: 2px; }
+    #mask .sub { font-size: 12px; color: #5a6169; }
+    .spinner {
+        width: 22px; height: 22px; border: 2px solid var(--border);
+        border-top-color: var(--accent); border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #err { max-width: 520px; padding: 0 20px; font-size: 12.5px; line-height: 1.8; color: #a4262c; text-align: center; display: none; }
+
+    /* 黑幕上的声音选项 */
+    #blackout .sndpick {
+        display: flex; align-items: center; gap: 9px;
+        font-size: 11.5px; color: #6b7480; letter-spacing: 2px;
+    }
+    #blackout .sndpick .btn { height: 25px; padding: 0 15px; font-size: 11.5px; }
+    #blackout .sndpick small { font-size: 10.5px; color: #4e555d; letter-spacing: 1px; }
+
+    /* ── 录像画面滤镜：整页压一层「正在录制」的摄像机质感 ── */
+    #recfx { position: fixed; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+    #recfx .lines {                     /* 扫描线 */
+        position: absolute; inset: 0;
+        background: repeating-linear-gradient(
+            to bottom, rgba(0, 0, 0, .22) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
+        mix-blend-mode: multiply;
+    }
+    #recfx .roll {                      /* 缓慢下滚的一条亮带（老摄像机的滚动条） */
+        position: absolute; left: 0; right: 0; height: 22%;
+        background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, rgba(200, 220, 255, .05) 50%, rgba(255, 255, 255, 0) 100%);
+        animation: recRoll 7.5s linear infinite;
+    }
+    @keyframes recRoll { from { top: -25%; } to { top: 105%; } }
+    #recfx .tint {                      /* 偏冷的色调 + 四角压暗 */
+        position: absolute; inset: 0;
+        background:
+            radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, .55) 100%),
+            linear-gradient(to bottom, rgba(60, 110, 160, .07), rgba(10, 20, 30, .12));
+    }
+    #recfx .glitch {                    /* 偶尔撕裂一下 */
+        position: absolute; left: 0; right: 0; height: 0; opacity: 0;
+        background: rgba(190, 220, 255, .5); mix-blend-mode: overlay;
+    }
+    #recfx .rec {                       /* 左上角 REC（做大，像摄像机屏幕上的录制标记） */
+        position: absolute; top: 46px; left: 18px;
+        display: flex; align-items: center; gap: 12px;
+        font: 700 26px/1 "Microsoft YaHei", sans-serif; letter-spacing: 5px;
+        color: #f2e4e4; text-shadow: 0 0 10px #000, 0 0 22px rgba(217, 75, 75, .55);
+    }
+    #recfx .rec i {
+        width: 20px; height: 20px; border-radius: 50%; background: #e04b4b;
+        box-shadow: 0 0 14px #e04b4b, 0 0 30px rgba(224, 75, 75, .6);
+        animation: recBlink 1.4s steps(1, end) infinite;
+    }
+    @keyframes recBlink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: .12; } }
+    #recfx .zoom {                      /* 变焦读数：跟着焦距一起走 */
+        position: absolute; top: 86px; left: 20px;
+        font: 600 13px/1 "Courier New", monospace; letter-spacing: 2px;
+        color: #dfe6ec; text-shadow: 0 0 8px #000; opacity: .9;
+    }
+    #recfx .tc {                        /* 时间码 */
+        position: absolute; bottom: 14px; left: 14px;
+        font: 400 12px/1 "Courier New", monospace; letter-spacing: 1.5px;
+        color: #cfd6dd; text-shadow: 0 0 6px #000; opacity: .85;
+    }
+    #recfx .tc small { display: block; margin-top: 5px; font-size: 10px; color: #8b939c; letter-spacing: 1px; }
+    @media (max-width: 640px) {
+        #recfx .tc small { display: none; }
+    }
+
+    /* ── 开局黑幕 ── */
+    #blackout {
+        position: fixed; inset: 0; z-index: 30; background: #000;
+        display: none; flex-direction: column; align-items: center; justify-content: center;
+        gap: 26px; text-align: center; padding: 0 26px;
+        color: #c9d1d9; transition: opacity 1.2s ease;
+    }
+    #blackout.show { display: flex; }
+    #blackout.gone { opacity: 0; pointer-events: none; }
+    #blackout .ln {
+        font-size: 15px; letter-spacing: 2px; line-height: 2; opacity: 0;
+        transition: opacity .9s ease; text-shadow: 0 0 20px #000;
+    }
+    #blackout .ln.on { opacity: 1; }
+    #blackout .ln small { display: block; margin-top: 8px; font-size: 12px; color: #6b7480; letter-spacing: 3px; }
+    #blackout .skip { position: absolute; bottom: 26px; font-size: 11px; color: #4a5158; letter-spacing: 2px; }
+
+    /* ── 右上角噪音指数 ── */
+    #noise-hud {
+        position: fixed; top: 46px; right: 12px; z-index: 9;
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 11px; background: rgba(9, 11, 15, .6);
+        border: 1px solid #1c2028; backdrop-filter: blur(6px);
+        font-size: 11.5px; color: #8b939c; letter-spacing: 1px; pointer-events: none;
+        opacity: .82;
+    }
+    #noise-hud .lb { color: #6b7480; }
+    #noise-hud .bar { width: 110px; height: 4px; background: #1b2028; overflow: hidden; }
+    #noise-hud .bar i {
+        display: block; height: 100%; width: 0; background: #6b7f96;
+        transition: width .2s linear, background .2s linear;
+    }
+    #noise-hud .vl { min-width: 44px; text-align: right; color: #aeb6be; }
+    #noise-hud .vl.warn { color: #c08a4a; }
+    #noise-hud .vl.bad { color: #c1453f; }
+
+    /* 声音关着的时候，按钮别长得跟开着一样 */
+    .btn.off { color: #c08a4a; border-color: #46361f; background: rgba(30, 22, 10, .55); }
+
+    /* ── 顶部提示条 ── */
+    #toast {
+        position: fixed; left: 50%; top: 58px; transform: translateX(-50%); z-index: 26;
+        max-width: 74vw; padding: 9px 16px; text-align: center;
+        background: rgba(9, 11, 15, .88); border: 1px solid #262b33;
+        color: #c3cbd3; font-size: 12.5px; line-height: 1.7; letter-spacing: .6px;
+        opacity: 0; transition: opacity .35s ease; pointer-events: none;
+    }
+    #toast.on { opacity: 1; }
+    #toast.bad { color: #e39a94; border-color: #4a2626; }
+
+    /* ── 通用面板（看文件 / 看屏幕 / 监控） ── */
+    #panel {
+        position: fixed; inset: 0; z-index: 22; display: none;
+        align-items: center; justify-content: center; background: rgba(2, 3, 5, .82);
+        backdrop-filter: blur(3px);
+    }
+    #panel.on { display: flex; }
+    #panel .card {
+        width: min(720px, 92vw); max-height: 82vh; overflow: auto;
+        background: #0d1116; border: 1px solid #232a33; padding: 22px 24px;
+        color: #c2cad2; font-size: 13px; line-height: 1.95; letter-spacing: .5px;
+    }
+    #panel h3 { font-size: 14px; color: #dfe5eb; letter-spacing: 2px; margin-bottom: 4px; font-weight: 600; }
+    #panel .sub { font-size: 11.5px; color: #6b7480; margin-bottom: 16px; }
+    #panel .doc {
+        background: #f6f3ea; color: #232323; padding: 18px 20px; margin: 12px 0;
+        border: 1px solid #d8d3c4; line-height: 2; white-space: pre-wrap;
+        font-family: "Microsoft YaHei", sans-serif;
+    }
+    #panel .doc.red { color: #8e1c1c; }
+    /* 夹在文件里的照片 */
+    #panel .photo { margin: 14px 0 6px; border: 1px solid #232a33; background: #05070a; }
+    #panel .photo img { display: block; width: 100%; height: auto; }
+    #panel .photo figcaption {
+        padding: 8px 10px; font-size: 11.5px; color: #6b7480;
+        letter-spacing: 1px; border-top: 1px solid #1d232a;
+    }
+    #panel .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+    #panel .acts .btn { height: 30px; }
+    /* 浏览器窗口（被防火墙拦截的那一页） */
+    .browser { background: #10151b; border: 1px solid #2a323c; }
+    .browser .bar { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #171d25; border-bottom: 1px solid #2a323c; }
+    .browser .dot3 { width: 9px; height: 9px; border-radius: 50%; background: #3a424c; }
+    .browser .url { flex: 1; height: 22px; background: #0c1116; border: 1px solid #2a323c; color: #7f8a95; font-size: 11px; padding: 0 8px; line-height: 20px; overflow: hidden; white-space: nowrap; }
+    .browser .body { padding: 26px 22px; text-align: center; }
+    .browser .body .big { font-size: 26px; color: #d8dee5; letter-spacing: 3px; margin-bottom: 10px; }
+    .browser .body .msg { color: #8b939c; font-size: 12.5px; line-height: 2.1; }
+    .browser .body .stamp { display: inline-block; margin-top: 14px; padding: 8px 14px; border: 2px solid #8e2b22; color: #c9564c; letter-spacing: 2px; transform: rotate(-3deg); }
+    /* 监控屏 */
+    .moni { display: flex; flex-direction: column-reverse; gap: 4px; }
+    .moni .fl { display: flex; align-items: center; gap: 10px; padding: 4px 8px; background: #0f141a; border: 1px solid #1e242c; font-size: 12px; }
+    .moni .fl .n { width: 34px; color: #7f8a95; }
+    .moni .fl .track { flex: 1; height: 10px; background: #080b0f; position: relative; }
+    .moni .fl .track i { position: absolute; top: -3px; width: 8px; height: 16px; background: #6b7f96; transition: left .4s linear; }
+    .moni .fl.here { border-color: #3d4a58; background: #131a21; }
+    .moni .fl.here .n { color: #c6ced6; }
+    .moni .fl .tag { width: 46px; text-align: right; color: #6b7480; font-size: 11px; }
+
+    /* ── 密码键盘 ── */
+    #pad {
+        position: fixed; inset: 0; z-index: 23; display: none;
+        align-items: center; justify-content: center; background: rgba(2, 3, 5, .84);
+    }
+    #pad.on { display: flex; }
+    #pad .box { width: 280px; background: #0d1116; border: 1px solid #232a33; padding: 20px; text-align: center; }
+    #pad .disp {
+        height: 46px; line-height: 44px; background: #070a0e; border: 1px solid #222933;
+        color: #d7dee5; font-size: 24px; letter-spacing: 12px; margin-bottom: 6px;
+    }
+    #pad .disp.err { color: #d1584f; border-color: #4a2626; }
+    #pad .disp.ok { color: #7fb47a; border-color: #264a2a; }
+    #pad .hint { font-size: 11px; color: #6b7480; margin-bottom: 14px; letter-spacing: 1px; }
+    #pad .hint.err { color: #c9564c; }
+    #pad .hint.ok { color: #7fb47a; }
+    /* 密码不对：抖一下 */
+    @keyframes padShake {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-7px); }
+        45% { transform: translateX(6px); }
+        70% { transform: translateX(-4px); }
+        88% { transform: translateX(3px); }
+    }
+    #pad .box.shake { animation: padShake .3s ease; }
+    #pad .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    #pad .keys button {
+        height: 42px; background: #151b22; border: 1px solid #262c35; color: #c2cad2;
+        font-size: 15px; cursor: pointer; font-family: var(--sans);
+    }
+    #pad .keys button:hover { background: #1d242c; }
+    #pad .keys button.k { background: #182029; color: #8b939c; font-size: 12px; }
+
+    /* ── 长按进度（上发条） ── */
+    #hold {
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 11;
+        width: 220px; text-align: center; display: none; pointer-events: none;
+    }
+    #hold.on { display: block; }
+    #hold .t { font-size: 12px; color: #c2cad2; letter-spacing: 2px; margin-bottom: 8px; text-shadow: 0 0 10px #000; }
+    #hold .bar { height: 6px; background: rgba(10, 13, 18, .8); border: 1px solid #2a323c; }
+    #hold .bar i { display: block; height: 100%; width: 0; background: #7f93aa; }
+
+    /* ── 结局 ── */
+    #over {
+        position: fixed; inset: 0; z-index: 28; display: none;
+        flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+        background: #05070a; text-align: center; padding: 0 24px;
+    }
+    #over.on { display: flex; }
+    #over .t1 { font-size: 26px; letter-spacing: 10px; color: #d9dde2; }
+    #over .t2 { font-size: 13px; letter-spacing: 2px; color: #7b838c; line-height: 2.1; max-width: 560px; }
+    #over .t3 { font-size: 11.5px; color: #4e555d; letter-spacing: 1px; }
+
+    @media (max-width: 640px) {
+        .topbar { padding-right: 4px; }
+        .topbar .t { font-size: 11px; letter-spacing: 0; }
+        .topbar .btn { padding: 0 9px; }
+        #intro .l1 { font-size: 13px; }
+    }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<audio id="bgm" src="audio/true.mp3" loop preload="auto"></audio>
+
+<div id="vig"></div>
+<div id="flick"></div>
+
+<div id="recfx">
+    <div class="lines"></div>
+    <div class="roll"></div>
+    <div class="tint"></div>
+    <div class="glitch" id="rec-glitch"></div>
+    <div class="rec"><i></i>REC</div>
+    <div class="zoom" id="rec-zoom">ZOOM ×1.0</div>
+    <div class="tc"><span id="rec-tc">18:00:00</span><small>校园监控 · 备用机位 · CH07</small></div>
+</div>
+
+<div class="topbar">
+    <span class="dot"></span>
+    <span class="t">秦主任办公室 · 7F · 18:00 · 潜入中</span>
+    <span class="spacer"></span>
+    <button class="btn" id="snd-btn" type="button">声音 关</button>
+    <button class="btn primary" id="lock-btn" type="button">锁定鼠标</button>
+    <a class="btn" href="index.html">返回墙墙</a>
+</div>
+
+<div id="noise-hud">
+    <span class="lb">噪音</span>
+    <div class="bar"><i id="noise-bar"></i></div>
+    <span class="vl" id="noise-t">安静</span>
+</div>
+
+<div id="toast"></div>
+
+<div id="hold">
+    <div class="t">发条 100%</div>
+    <div class="bar"><i id="hold-bar"></i></div>
+</div>
+
+<div id="panel"><div class="card" id="panel-card"></div></div>
+
+<div id="pad">
+    <div class="box">
+        <div class="disp" id="pad-disp">----</div>
+        <div class="hint" id="pad-hint">四位数字密码</div>
+        <div class="keys" id="pad-keys"></div>
+    </div>
+</div>
+
+<div id="over">
+    <div class="t1" id="over-t1"></div>
+    <div class="t2" id="over-t2"></div>
+    <div class="t3" id="over-t3"></div>
+    <button class="btn primary" id="over-btn" type="button">再来一次</button>
+</div>
+
+<div id="intro">
+    <div class="l1">18:00 · 杨紫萱 · 独自潜入</div>
+    <div class="l2">一片漆黑...<br>别弄响任何东西。</div>
+</div>
+
+<div id="blackout">
+    <div class="ln" id="bo-1">「真黑啊……」杨紫萱低声嘀咕道。
+        <small>—— 18:00，教师办公室，门在你身后合上了</small>
+    </div>
+    <div class="ln" id="bo-2">「一定要小声，外面好像有人。」
+        <small>—— 走廊尽头，拖把蹭着地面的声音，正在一层一层往上</small>
+    </div>
+    <div class="skip">点击任意处跳过</div>
+    <div class="sndpick">
+        <span></span>
+        <button class="btn" id="bo-snd-on" type="button">开</button>
+        <button class="btn" id="bo-snd-off" type="button">关</button>
+        <small></small>
+    </div>
+</div>
+
+<div id="mask">
+    <div class="spinner" id="spin"></div>
+    <div class="title" id="mask-title">你走到了办公室门口...</div>
+    <div class="sub" id="mask-sub">门开了...</div>
+    <div id="err"></div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   教师办公室 3D —— 玩家位置固定，视角自由
+   ══════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    /* three.js 来源：本地优先，失败/超时后依次回退 */
+    var SOURCES = [
+        'vendor/three.min.js',
+        'https://unpkg.com/three@0.150.1/build/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js',
+        'https://cdn.bootcdn.net/ajax/libs/three.js/r150/three.min.js'
+    ];
+    var TIMEOUT = 6000;      // 单个来源最长等待
+    var started = false;
+
+    function $(id) { return document.getElementById(id); }
+    function note(msg) { var s = $('mask-sub'); if (s) s.textContent = msg; }
+
+    function showError(title, sub, detail) {
+        var bo = $('blackout'); if (bo) bo.style.display = 'none';     // 报错时别被黑幕挡住
+        var spin = $('spin'); if (spin) spin.style.display = 'none';
+        var t = $('mask-title'); if (t) t.textContent = title;
+        note(sub);
+        var e = $('err');
+        if (e) { e.style.display = 'block'; e.textContent = detail || ''; }
+        var m = $('mask');
+        if (m && !$('retry')) {
+            var b = document.createElement('button');
+            b.id = 'retry';
+            b.className = 'btn primary';
+            b.type = 'button';
+            b.textContent = '重新加载';
+            b.onclick = function () { location.reload(); };
+            m.appendChild(b);
+        }
+    }
+
+    function webglOK() {
+        try {
+            var c = document.createElement('canvas');
+            return !!(window.WebGLRenderingContext &&
+                (c.getContext('webgl') || c.getContext('experimental-webgl')));
+        } catch (e) { return false; }
+    }
+
+    function loadThree(i) {
+        if (typeof i !== 'number' || i < 0) i = 0;
+        if (window.THREE) { safeBoot(); return; }
+        if (i >= SOURCES.length) {
+            showError('加载失败', '未能载入 three.js',
+                '请确认网页同目录下存在 vendor/three.min.js；若通过 file:// 打开且无网络，' +
+                '本地文件是唯一来源。也可连接网络后重试，页面会自动从 CDN 获取。');
+            return;
+        }
+        var s = document.createElement('script');
+        var settled = false;
+        var timer = setTimeout(function () {
+            if (settled) return;
+            settled = true;
+            s.onload = s.onerror = null;
+            note('来源 ' + (i + 1) + ' 响应超时，正在尝试其它来源…');
+            loadThree(i + 1);
+        }, TIMEOUT);
+        s.onload = function () {
+            if (settled) return;
+            settled = true; clearTimeout(timer);
+            if (window.THREE) safeBoot(); else loadThree(i + 1);
+        };
+        s.onerror = function () {
+            if (settled) return;
+            settled = true; clearTimeout(timer);
+            loadThree(i + 1);
+        };
+        s.src = SOURCES[i];
+        document.head.appendChild(s);
+    }
+
+    function safeBoot() {
+        if (started) return;
+        started = true;
+        if (!webglOK()) {
+            showError('无法启动 3D 渲染', '当前浏览器未启用 WebGL',
+                '请在浏览器设置中开启「使用硬件加速」，或换用 Chrome / Edge 新版本后重试。');
+            return;
+        }
+        try {
+            boot();
+        } catch (e) {
+            showError('场景初始化失败', (e && e.message) ? e.message : String(e),
+                '请刷新重试；若反复出现，请把上面的提示信息反馈给作者。');
+        }
+    }
+
+    /* ────────────────────────── 主程序 ────────────────────────── */
+    function boot() {
+        var THREE = window.THREE;
+        var $ = function (id) { return document.getElementById(id); };
+        var canvas = $('scene');
+
+        /* ---------- 基础工具 ---------- */
+        function std(color, rough, metal) {
+            return new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: rough === undefined ? 0.85 : rough,
+                metalness: metal || 0
+            });
+        }
+        // canvas 纹理
+        function CT(w, h, draw) {
+            var c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            draw(c.getContext('2d'), w, h);
+            var t = new THREE.CanvasTexture(c);
+            if (THREE.SRGBColorSpace !== undefined && 'colorSpace' in t) t.colorSpace = THREE.SRGBColorSpace;
+            else if (THREE.sRGBEncoding !== undefined) t.encoding = THREE.sRGBEncoding;
+            t.anisotropy = 8;
+            return t;
+        }
+        var boxG = new THREE.BoxGeometry(1, 1, 1);
+        function box(w, h, d, mat, x, y, z, parent) {
+            var m = new THREE.Mesh(boxG, mat);
+            m.scale.set(w, h, d);
+            m.position.set(x, y, z);
+            (parent || scene).add(m);
+            return m;
+        }
+        var cylG = new THREE.CylinderGeometry(1, 1, 1, 20);
+        // rt/rb：顶/底半径，h：高
+        function cyl(rt, rb, h, mat, x, y, z, parent, seg) {
+            var m, g;
+            if (seg) {
+                g = new THREE.CylinderGeometry(rt, rb, h, seg);
+                m = new THREE.Mesh(g, mat);
+            } else {
+                m = new THREE.Mesh(cylG, mat);
+                m.scale.set(rt, h, rt);
+            }
+            m.position.set(x, y, z);
+            (parent || scene).add(m);
+            return m;
+        }
+        function plane(w, h, mat, x, y, z, parent) {
+            var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+            m.position.set(x, y, z);
+            (parent || scene).add(m);
+            return m;
+        }
+        function grp(x, y, z, ry) {
+            var g = new THREE.Group();
+            g.position.set(x, y, z);
+            if (ry) g.rotation.y = ry;
+            scene.add(g);
+            return g;
+        }
+
+        /* ---------- 场景 / 相机 / 渲染器 ---------- */
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x04060a);
+        scene.fog = new THREE.Fog(0x04060a, 1.3, 13);
+
+        var EYE = new THREE.Vector3(0, 1.58, 1.75);   // 玩家固定站位
+        var camera = new THREE.PerspectiveCamera(62, 1, 0.05, 120);
+        camera.rotation.order = 'YXZ';
+        camera.position.copy(EYE);
+
+        var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.82;
+        if ('outputColorSpace' in renderer && THREE.SRGBColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
+        else if (THREE.sRGBEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
+
+        function resize() {
+            var w = window.innerWidth, h = window.innerHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h, false);
+        }
+        window.addEventListener('resize', resize);
+
+        /* ---------- 贴图 ---------- */
+        var floorTex = CT(256, 256, function (g, w, h) {
+            g.fillStyle = '#d8d2c7'; g.fillRect(0, 0, w, h);
+            for (var i = 0; i < 500; i++) {
+                g.globalAlpha = Math.random() * 0.07;
+                g.fillStyle = Math.random() > .5 ? '#c4bcae' : '#e6e1d7';
+                g.fillRect(Math.random() * w, Math.random() * h, 8, 8);
+            }
+            g.globalAlpha = 1;
+            g.strokeStyle = '#bbb3a5'; g.lineWidth = 4;
+            g.strokeRect(0, 0, w, h);
+            g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1;
+            g.strokeRect(3, 3, w - 6, h - 6);
+        });
+        floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+        floorTex.repeat.set(9, 7);
+
+        var wallTex = CT(128, 128, function (g, w, h) {
+            g.fillStyle = '#ece8e0'; g.fillRect(0, 0, w, h);
+            for (var i = 0; i < 260; i++) {
+                g.globalAlpha = Math.random() * 0.05;
+                g.fillStyle = Math.random() > .5 ? '#000' : '#fff';
+                g.fillRect(Math.random() * w, Math.random() * h, 3, 3);
+            }
+            g.globalAlpha = 1;
+        });
+        wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+        wallTex.repeat.set(6, 2);
+
+        var woodTex = CT(512, 512, function (g, w, h) {
+            g.fillStyle = '#bb8d5f'; g.fillRect(0, 0, w, h);
+            for (var i = 0; i < 180; i++) {
+                g.strokeStyle = 'rgba(92,58,30,' + (0.05 + Math.random() * 0.14) + ')';
+                g.lineWidth = 1 + Math.random() * 3;
+                g.beginPath();
+                var y = Math.random() * h;
+                g.moveTo(0, y);
+                g.bezierCurveTo(w * .3, y + (Math.random() * 22 - 11), w * .65, y + (Math.random() * 22 - 11), w, y + (Math.random() * 16 - 8));
+                g.stroke();
+            }
+        });
+        var woodTopTex = CT(512, 256, function (g, w, h) {
+            g.fillStyle = '#c99a67'; g.fillRect(0, 0, w, h);
+            for (var i = 0; i < 120; i++) {
+                g.strokeStyle = 'rgba(120,78,42,' + (0.06 + Math.random() * 0.12) + ')';
+                g.lineWidth = 1 + Math.random() * 2.5;
+                g.beginPath();
+                var y = Math.random() * h;
+                g.moveTo(0, y);
+                g.bezierCurveTo(w * .35, y + (Math.random() * 14 - 7), w * .7, y + (Math.random() * 14 - 7), w, y + (Math.random() * 10 - 5));
+                g.stroke();
+            }
+        });
+
+        // 窗外：放学后的校园，只剩轮廓
+        var viewTex = CT(1024, 512, function (g, w, h) {
+            var sky = g.createLinearGradient(0, 0, 0, h * .66);
+            sky.addColorStop(0, '#04060c'); sky.addColorStop(.55, '#0a1120'); sky.addColorStop(1, '#15223a');
+            g.fillStyle = sky; g.fillRect(0, 0, w, h * .66);
+            // 稀落的星
+            for (var i = 0; i < 110; i++) {
+                g.fillStyle = 'rgba(200,215,235,' + (0.10 + Math.random() * 0.38) + ')';
+                g.fillRect(Math.random() * w, Math.random() * h * .42, 1.4, 1.4);
+            }
+            // 惨白的月 + 光晕
+            g.fillStyle = 'rgba(224,234,246,.90)';
+            g.beginPath(); g.arc(w * .78, h * .15, 24, 0, Math.PI * 2); g.fill();
+            var halo = g.createRadialGradient(w * .78, h * .15, 8, w * .78, h * .15, 130);
+            halo.addColorStop(0, 'rgba(186,208,238,.28)'); halo.addColorStop(1, 'rgba(186,208,238,0)');
+            g.fillStyle = halo; g.beginPath(); g.arc(w * .78, h * .15, 130, 0, Math.PI * 2); g.fill();
+            // 暗云
+            for (var ci = 0; ci < 10; ci++) {
+                g.fillStyle = 'rgba(18,26,40,' + (0.35 + Math.random() * 0.35) + ')';
+                var cx = Math.random() * w, cy = Math.random() * h * .3, r = 20 + Math.random() * 34;
+                for (var k = 0; k < 5; k++) {
+                    g.beginPath();
+                    g.ellipse(cx + k * r * .7 - r, cy + Math.sin(k) * 6, r * .95, r * .5, 0, 0, Math.PI * 2);
+                    g.fill();
+                }
+            }
+            // 地面：死黑
+            var gr = g.createLinearGradient(0, h * .62, 0, h);
+            gr.addColorStop(0, '#0a1015'); gr.addColorStop(1, '#04070a');
+            g.fillStyle = gr; g.fillRect(0, h * .62, w, h * .38);
+            // 教学楼剪影，零星几盏没关的灯
+            function building(x, y, bw, bh, rows, cols, lit) {
+                g.fillStyle = '#0b1017'; g.fillRect(x, y, bw, bh);
+                g.fillStyle = '#121926'; g.fillRect(x, y, bw, 7);
+                for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+                    g.fillStyle = Math.random() < lit ? 'rgba(255,206,138,.5)' : 'rgba(28,38,54,.5)';
+                    g.fillRect(x + 10 + c * (bw - 20) / cols, y + 20 + r * (bh - 30) / rows,
+                        (bw - 20) / cols - 8, (bh - 30) / rows - 12);
+                }
+            }
+            building(40, h * .32, 190, h * .29, 3, 6, .07);
+            building(255, h * .26, 150, h * .35, 4, 5, .04);
+            building(690, h * .34, 170, h * .27, 3, 5, .03);
+            building(870, h * .28, 130, h * .32, 4, 4, .06);
+            // 操场只剩一条暗红跑道
+            g.strokeStyle = 'rgba(118,50,38,.32)'; g.lineWidth = 12;
+            g.beginPath(); g.ellipse(w * .52, h * .82, 250, 58, 0, 0, Math.PI * 2); g.stroke();
+            // 旗杆剪影
+            g.fillStyle = '#080c11'; g.fillRect(w * .18, h * .42, 3, h * .38);
+            // 树影
+            for (var t = 0; t < 26; t++) {
+                var tx = Math.random() * w, ty = h * (.62 + Math.random() * .3);
+                g.fillStyle = '#030507';
+                g.fillRect(tx - 3, ty, 6, 26);
+                g.beginPath(); g.ellipse(tx, ty - 10, 22 + Math.random() * 16, 18 + Math.random() * 14, 0, 0, Math.PI * 2); g.fill();
+            }
+        });
+
+        // 白板：值日表
+        var boardTex = CT(1024, 460, function (g, w, h) {
+            g.fillStyle = '#f7f9f8'; g.fillRect(0, 0, w, h);
+            g.strokeStyle = '#c9cdcc'; g.lineWidth = 6; g.strokeRect(0, 0, w, h);
+            g.fillStyle = '#1f3d5c';
+            g.font = 'bold 54px "Microsoft YaHei", sans-serif';
+            g.fillText('办公室值日表', 40, 84);
+            g.fillStyle = '#3b6ea5';
+            g.font = '34px "Microsoft YaHei", sans-serif';
+            g.fillText('第 9 周 · 11 月', 620, 80);
+            g.strokeStyle = '#4a4a4a'; g.lineWidth = 3;
+            g.beginPath(); g.moveTo(40, 110); g.lineTo(w - 40, 110); g.stroke();
+            var cols = ['星期', '值日教师', '值日学生', '备注'];
+            var cw = [130, 210, 300, 300];
+            var x = 40, y0 = 130, rh = 62;
+            g.font = 'bold 32px "Microsoft YaHei", sans-serif';
+            for (var i = 0; i < 4; i++) {
+                g.fillStyle = '#eaf0f6'; g.fillRect(x, y0, cw[i], rh);
+                g.strokeStyle = '#9aa3ab'; g.lineWidth = 2; g.strokeRect(x, y0, cw[i], rh);
+                g.fillStyle = '#2b2b2b'; g.fillText(cols[i], x + 16, y0 + 42);
+                x += cw[i];
+            }
+            var rows = [
+                ['周一', '秦主任', '李 明', '擦黑板 / 倒垃圾'],
+                ['周二', '王老师', '陈 曦', '整理作业本'],
+                ['周三', '刘老师', '赵一诺', '办公室谈话（长期）'],
+                ['周四', '秦主任', '孙博文', '浇花 / 换水'],
+                ['周五', '李老师', '周 末', '大扫除']];
+            g.font = '30px "Microsoft YaHei", sans-serif';
+            for (var r = 0; r < rows.length; r++) {
+                var xx = 40, yy = y0 + rh + r * rh;
+                for (var c = 0; c < 4; c++) {
+                    g.fillStyle = r === 2 ? '#fff4e0' : '#ffffff';
+                    g.fillRect(xx, yy, cw[c], rh);
+                    g.strokeStyle = '#b9bfc4'; g.lineWidth = 2; g.strokeRect(xx, yy, cw[c], rh);
+                    g.fillStyle = r === 2 && c === 3 ? '#c0392b' : '#333';
+                    g.fillText(rows[r][c], xx + 16, yy + 41);
+                    xx += cw[c];
+                }
+            }
+            g.fillStyle = '#8a8a8a'; g.font = '24px "Microsoft YaHei", sans-serif';
+            g.fillText('※ 值日生未完成者，请到办公室说明情况', 44, h - 26);
+        });
+
+        // 课程表
+        var schedTex = CT(512, 640, function (g, w, h) {
+            g.fillStyle = '#fdfdfb'; g.fillRect(0, 0, w, h);
+            g.strokeStyle = '#b8b8b8'; g.lineWidth = 4; g.strokeRect(0, 0, w, h);
+            g.fillStyle = '#1f3d5c'; g.font = 'bold 40px "Microsoft YaHei", sans-serif';
+            g.fillText('高二（3）班 课程表', 28, 60);
+            var days = ['', '一', '二', '三', '四', '五'];
+            var subs = [
+                ['语文', '数学', '英语', '物理', '体育'],
+                ['数学', '语文', '物理', '化学', '英语'],
+                ['英语', '化学', '数学', '语文', '自习'],
+                ['物理', '英语', '体育', '数学', '语文'],
+                ['化学', '物理', '语文', '英语', '数学'],
+                ['生物', '数学', '化学', '生物', '班会'],
+                ['自习', '体育', '自习', '班会', '活动']];
+            var cw = 74, ch = 58, x0 = 26, y0 = 92;
+            g.font = '26px "Microsoft YaHei", sans-serif';
+            for (var r = 0; r < 8; r++) for (var c = 0; c < 6; c++) {
+                var x = x0 + c * cw, y = y0 + r * ch;
+                g.fillStyle = (r === 0) ? '#eaf0f6' : ((r === 3 && c === 3) ? '#ffe9e6' : '#fff');
+                g.fillRect(x, y, cw, ch);
+                g.strokeStyle = '#c3c8cc'; g.lineWidth = 2; g.strokeRect(x, y, cw, ch);
+                g.fillStyle = (r === 3 && c === 3) ? '#c0392b' : '#333';
+                var txt = (r === 0) ? days[c] : ((c === 0) ? String(r) : subs[r - 1][c - 1]);
+                g.fillText(txt, x + (c === 0 ? 28 : 12), y + 37);
+            }
+            g.fillStyle = '#8a8a8a'; g.font = '20px "Microsoft YaHei", sans-serif';
+            g.fillText('班主任：秦主任', 30, h - 26);
+        });
+
+        // 标语
+        var mottoTex = CT(1024, 220, function (g, w, h) {
+            g.fillStyle = '#f3efe6'; g.fillRect(0, 0, w, h);
+            g.strokeStyle = '#b03a2e'; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, h - 12);
+            g.fillStyle = '#8e2b22';
+            g.font = 'bold 96px "Microsoft YaHei", sans-serif';
+            g.textAlign = 'center';
+            g.fillText('学高为师  身正为范', w / 2, h / 2 + 34);
+            g.textAlign = 'left';
+        });
+
+        // 显示器画面（成绩表）
+        var screenTex = CT(512, 320, function (g, w, h) {
+            g.fillStyle = '#1d2b3a'; g.fillRect(0, 0, w, h);
+            g.fillStyle = '#e9edf2'; g.fillRect(0, 0, w, 26);
+            g.fillStyle = '#3a4a5e'; g.font = 'bold 16px "Microsoft YaHei", sans-serif';
+            g.fillText('成绩分析.xlsx  —  高二（3）班  期中', 12, 18);
+            g.strokeStyle = '#39485c'; g.lineWidth = 1;
+            for (var r = 0; r < 12; r++) { g.beginPath(); g.moveTo(0, 30 + r * 24); g.lineTo(w, 30 + r * 24); g.stroke(); }
+            for (var c = 0; c < 6; c++) { g.beginPath(); g.moveTo(c * 86, 30); g.lineTo(c * 86, h); g.stroke(); }
+            g.font = '15px "Microsoft YaHei", sans-serif';
+            var names = ['李 明', '陈 曦', '赵一诺', '孙博文', '周 末', '王小雨', '何 舟', '林 川', '你'];
+            for (var i = 0; i < 9; i++) {
+                var y = 30 + (i + 1) * 24;
+                g.fillStyle = i === 8 ? '#ff6b5e' : '#c9d4e2';
+                g.fillText(names[i], 12, y - 7);
+                g.fillStyle = i === 8 ? '#ff6b5e' : '#8fa3bb';
+                g.fillText(String(92 - i * 6 - (i === 8 ? 20 : 0)), 96, y - 7);
+                g.fillText(String(88 - i * 5 - (i === 8 ? 25 : 0)), 182, y - 7);
+                g.fillText(i === 8 ? '-31' : '+' + (5 - i % 4), 268, y - 7);
+                g.fillStyle = i === 8 ? '#ffb4ac' : '#6f8299';
+                g.fillText(i === 8 ? '待谈话' : '正常', 354, y - 7);
+            }
+            g.strokeStyle = '#ff6b5e'; g.lineWidth = 2;
+            g.strokeRect(2, 30 + 9 * 24 - 22, w - 4, 24);
+        });
+
+        // 挂钟表盘
+        var clockTex = CT(256, 256, function (g, w, h) {
+            g.fillStyle = '#fbfbf8'; g.beginPath(); g.arc(128, 128, 124, 0, Math.PI * 2); g.fill();
+            g.strokeStyle = '#2b2b2b'; g.lineWidth = 4; g.beginPath(); g.arc(128, 128, 124, 0, Math.PI * 2); g.stroke();
+            g.translate(128, 128);
+            for (var i = 0; i < 60; i++) {
+                var a = i / 60 * Math.PI * 2;
+                var r1 = i % 5 === 0 ? 100 : 110;
+                g.strokeStyle = i % 5 === 0 ? '#222' : '#9a9a9a';
+                g.lineWidth = i % 5 === 0 ? 5 : 2;
+                g.beginPath();
+                g.moveTo(Math.sin(a) * r1, -Math.cos(a) * r1);
+                g.lineTo(Math.sin(a) * 118, -Math.cos(a) * 118);
+                g.stroke();
+            }
+            g.fillStyle = '#333'; g.font = 'bold 26px "Microsoft YaHei", sans-serif'; g.textAlign = 'center';
+            var nums = ['12', '3', '6', '9'];
+            var pos = [[0, -74], [74, 9], [0, 84], [-74, 9]];
+            for (var k = 0; k < 4; k++) g.fillText(nums[k], pos[k][0], pos[k][1]);
+            g.textAlign = 'left';
+            g.fillStyle = '#8a8a8a'; g.font = '14px "Microsoft YaHei", sans-serif';
+            g.fillText('QUARTZ', -22, 56);
+        });
+
+        // 检讨书
+        var letterTex = CT(320, 420, function (g, w, h) {
+            g.fillStyle = '#fdfcf6'; g.fillRect(0, 0, w, h);
+            g.strokeStyle = '#d8d8cc'; g.lineWidth = 2;
+            for (var i = 1; i < 15; i++) { g.beginPath(); g.moveTo(18, i * 28); g.lineTo(w - 18, i * 28); g.stroke(); }
+            g.fillStyle = '#2a2a2a'; g.font = 'bold 26px "Microsoft YaHei", sans-serif';
+            g.fillText('检 讨 书', 100, 52);
+            g.font = '19px "Microsoft YaHei", sans-serif'; g.fillStyle = '#333';
+            var lines = ['尊敬的秦主任：', '  我错了。我不该在', '晚自习用手机。我', '保证下次不会再', '犯，请老师监督。', '', '  上课认真听讲，', '按时完成作业，', '不再让您操心。', '', '检讨人：＿＿＿', '2026年  月  日'];
+            for (var r = 0; r < lines.length; r++) g.fillText(lines[r], 30, 100 + r * 28);
+        });
+
+        // 门牌
+        var doorTex = CT(512, 160, function (g, w, h) {
+            g.fillStyle = '#f2f2ee'; g.fillRect(0, 0, w, h);
+            g.strokeStyle = '#b9b3a6'; g.lineWidth = 6; g.strokeRect(4, 4, w - 8, h - 8);
+            g.fillStyle = '#22303f'; g.font = 'bold 74px "Microsoft YaHei", sans-serif'; g.textAlign = 'center';
+            g.fillText('教师办公室', w / 2, h / 2 + 26);
+            g.textAlign = 'left';
+        });
+
+        // 红字纸条
+        var warnTex = CT(320, 180, function (g, w, h) {
+            g.fillStyle = '#ece5d4'; g.fillRect(0, 0, w, h);
+            g.strokeStyle = '#b8b2a0'; g.lineWidth = 3; g.strokeRect(3, 3, w - 6, h - 6);
+            g.fillStyle = '#961c1c'; g.font = 'bold 40px "Microsoft YaHei", sans-serif';
+            g.fillText('别 以 为 我 不 知 道', 16, 62);
+            g.fillStyle = '#7c2020'; g.font = '26px "Microsoft YaHei", sans-serif';
+            g.fillText('监控早就拍下来了', 44, 112);
+            g.fillStyle = '#8a8a80'; g.font = '20px "Microsoft YaHei", sans-serif';
+            g.fillText('11.03  01:12', 96, 150);
+        });
+
+        // 被翻出来的成绩单
+        var scoreTex = CT(320, 220, function (g, w, h) {
+            g.fillStyle = '#f7f4ea'; g.fillRect(0, 0, w, h);
+            g.fillStyle = '#2b2b2b'; g.font = 'bold 22px "Microsoft YaHei", sans-serif';
+            g.fillText('高二（11）班  期末成绩', 28, 34);
+            g.strokeStyle = '#a2a8ae'; g.lineWidth = 1;
+            for (var r = 0; r < 7; r++) { g.beginPath(); g.moveTo(20, 50 + r * 22); g.lineTo(w - 20, 50 + r * 22); g.stroke(); }
+            g.font = '15px "Microsoft YaHei", sans-serif';
+            var names = ['李 明', '陈 曦', '赵一诺', '孙博文', '周 末', '你'];
+            for (var i = 0; i < 6; i++) {
+                g.fillStyle = i === 5 ? '#a81c1c' : '#3a3a3a';
+                g.fillText(names[i], 26, 68 + i * 22);
+                g.fillText(String(91 - i * 7 - (i === 5 ? 24 : 0)), 196, 68 + i * 22);
+            }
+            g.strokeStyle = '#c0392b'; g.lineWidth = 2;
+            g.strokeRect(16, 50 + 5 * 22 + 2, w - 32, 21);
+        });
+
+        // 便签
+        function noteTex(txt) {
+            return CT(128, 128, function (g, w, h) {
+                g.fillStyle = '#ffe680'; g.fillRect(0, 0, w, h);
+                g.fillStyle = 'rgba(0,0,0,.06)'; g.fillRect(0, 0, 14, h);
+                g.fillStyle = '#5a4a10'; g.font = 'bold 26px "Microsoft YaHei", sans-serif';
+                var t = txt.split('\n');
+                for (var i = 0; i < t.length; i++) g.fillText(t[i], 18, 46 + i * 32);
+            });
+        }
+
+        /* ---------- 材质 ---------- */
+        var MAT = {
+            floor: new THREE.MeshStandardMaterial({ map: floorTex, roughness: .82, metalness: .02 }),
+            wall: new THREE.MeshStandardMaterial({ map: wallTex, color: 0xf0ece4, roughness: .96 }),
+            ceil: std(0xf7f7f5, .95),
+            wood: new THREE.MeshStandardMaterial({ map: woodTex, roughness: .72 }),
+            woodTop: new THREE.MeshStandardMaterial({ map: woodTopTex, roughness: .6 }),
+            woodDark: std(0x7d5a3c, .8),
+            white: std(0xf4f4f2, .7),
+            grey: std(0x9aa0a6, .6, .3),
+            dark: std(0x2b3037, .55, .35),
+            black: std(0x1a1d21, .5, .2),
+            metal: std(0x7d858c, .35, .75),
+            red: std(0xb03a2e, .7),
+            green: std(0x4f7f43, .8),
+            blue: std(0x2f6fa8, .7),
+            cup: std(0xf1f1ee, .35),
+            woodIn: std(0x8a7255, .92),        // 抽屉内壁
+            paper: std(0xfaf7ef, .9),
+            glass: new THREE.MeshStandardMaterial({ color: 0xdff0fb, transparent: true, opacity: .13, roughness: .05, metalness: .1 }),
+            lamp: std(0x31343a, .85),          // 熄着的灯管
+            screenLit: new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }),
+            board: new THREE.MeshStandardMaterial({ map: boardTex, roughness: .5 }),
+            clockFace: new THREE.MeshStandardMaterial({ map: clockTex, roughness: .6 }),
+            letter: new THREE.MeshStandardMaterial({ map: letterTex, roughness: .9, side: THREE.DoubleSide }),
+            doorPlate: new THREE.MeshStandardMaterial({ map: doorTex, roughness: .6 }),
+            outside: new THREE.MeshBasicMaterial({ map: viewTex, fog: false, toneMapped: false }),
+            book: [std(0x8c3b3b, .8), std(0x3b5f8c, .8), std(0x5c7a3b, .8), std(0x8c7a3b, .8),
+                   std(0x6b4a7a, .8), std(0x2f5f5c, .8), std(0xa06a3c, .8), std(0x4a4a55, .8)]
+        };
+
+        /* ---------- 可交互提示收集 ---------- */
+        var looks = [];           // {obj, tip, name}
+        function mark(obj, name, tip) {
+            obj.userData.tip = tip;
+            obj.userData.name = name;
+            looks.push(obj);
+            return obj;
+        }
+
+        var PROPS = [];           // 新增的可交互物件（会被加进射线检测列表）
+
+        /* ══════════════════════════════════════════════════════
+           潜入系统
+           噪音 → 保姆 → 被抓；10 分钟安全 / 15 分钟强制结束
+           ══════════════════════════════════════════════════════ */
+        var SAFE_T = 600, LIMIT_T = 900;     // 秒
+        var WIND_MAX = 120;                  // 发条玩具：两分钟上一次弦
+
+        // 本局随机时间：17:30 — 18:30。密码 = 十二小时制的「时分」
+        var _cm = 17 * 60 + 30 + Math.floor(Math.random() * 61);
+        var CLOCK_H = Math.floor(_cm / 60), CLOCK_M = _cm % 60;
+        function p2(n) { return (n < 10 ? '0' : '') + n; }
+        var CLOCK_TXT = p2(CLOCK_H) + ':' + p2(CLOCK_M);
+        var CODE = p2(CLOCK_H - 12) + p2(CLOCK_M);
+
+        var S = {
+            t: 0, run: false, over: false, end: '', reason: '',
+            noise: 0, heart: 0,
+            bellOff: false, folderOpen: false,
+            hasKey: false, hasSD: false,
+            potOff: false, cupOff: false, cabMoved: false, cabNoise: 0,
+            vent: 0, toolbox: false, hidden: false, complaint: false,
+            wind: WIND_MAX, light: false, torch: false, torchOn: false,
+            bag: [], clues: 0
+        };
+        var bellShake = 0;                    // 铃铛晃动余韵
+
+        /* ---------- 小工具 ---------- */
+        function setTxt(id, v) { var e = $(id); if (e) e.textContent = v; }
+        function fmt(sec) { sec = Math.max(0, Math.ceil(sec)); return p2(Math.floor(sec / 60)) + ':' + p2(sec % 60); }
+        function nannyFloor() { return Math.min(7, 1 + S.t / SAFE_T * 6); }
+
+        /* ---------- 顶部提示 ---------- */
+        var toastEl = $('toast'), toastT = 0;
+        function toast(msg, bad) {
+            if (!toastEl) return;
+            toastEl.textContent = msg;
+            toastEl.className = 'on' + (bad ? ' bad' : '');
+            toastT = 3.4;
+        }
+        function toastTick(dt) {
+            if (toastT > 0) { toastT -= dt; if (toastT <= 0 && toastEl) toastEl.className = ''; }
+        }
+
+        /* ---------- 通用面板（看文件 / 看屏幕 / 看监控） ---------- */
+        // 要点 UI 上任何按钮之前，得先把鼠标从指针锁定里放出来：
+        // 锁定时光标是藏着的，点击全进 canvas，DOM 按钮一个都点不到（结局界面会直接卡死）
+        function leaveLock() {
+            if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) { } }
+        }
+        var panelEl = $('panel'), cardEl = $('panel-card');
+        function panelShow(title, sub, html, footBtn) {
+            if (!panelEl) return;
+            leaveLock();
+            cardEl.innerHTML = '<h3>' + title + '</h3><div class="sub">' + sub + '</div>' + html +
+                '<div class="acts"><button class="btn" id="p-close" type="button">' + (footBtn || '放下（Esc）') + '</button></div>';
+            panelEl.classList.add('on');
+            var b = $('p-close');
+            if (b) b.onclick = panelHide;
+        }
+        function panelHide() { if (panelEl) panelEl.classList.remove('on'); }
+        if (panelEl) panelEl.addEventListener('click', function (e) { if (e.target === panelEl) panelHide(); });
+        document.addEventListener('keydown', function (e) {
+            var ov = $('over');
+            if (ov && ov.classList.contains('on') && (e.key === 'Enter' || e.key === 'r' || e.key === 'R')) {
+                location.reload(); return;                     // 结局界面：回车/R 再来一次
+            }
+            if (e.key === 'Escape') { panelHide(); padHide(); return; }
+            if (e.key === 'm' || e.key === 'M') { setSound(!sndOn); return; }   // 随时开关声音
+            if (!(padEl && padEl.classList.contains('on'))) return;   // 键盘只在密码盘打开时接管
+            if (/^[0-9]$/.test(e.key)) { padPush(e.key); return; }
+            if (e.key === 'Backspace') { padBuf = padBuf.slice(0, -1); padDraw(); return; }
+            if (e.key === 'Enter') padEnter();
+        });
+
+        /* ---------- 密码键盘 ---------- */
+        var padEl = $('pad'), padDisp = $('pad-disp'), padHint = $('pad-hint');
+        var padBuf = '', padCB = null, padHint0 = '四位数字密码';
+        (function () {
+            var keys = $('pad-keys'); if (!keys) return;
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9'].forEach(function (k) {
+                var b = document.createElement('button'); b.type = 'button'; b.textContent = k;
+                b.onclick = function () { padPush(k); }; keys.appendChild(b);
+            });
+            var b0 = document.createElement('button'); b0.type = 'button'; b0.textContent = '0';
+            b0.onclick = function () { padPush('0'); }; keys.appendChild(b0);
+            var bc = document.createElement('button'); bc.type = 'button'; bc.className = 'k'; bc.textContent = '清空';
+            bc.onclick = function () { padBuf = ''; padDraw(); }; keys.appendChild(bc);
+            var bo = document.createElement('button'); bo.type = 'button'; bo.className = 'k'; bo.textContent = '确认';
+            bo.onclick = padEnter; keys.appendChild(bo);
+        })();
+        function padPush(n) {
+            if (padBuf.length >= 4) return;
+            padBuf += n; padDraw(); sfxClick();
+            if (padBuf.length === 4 && padHint) { padHint.textContent = '四位已满 · 按「确认」'; padHint.className = 'hint'; }
+        }
+        function padDraw() {
+            if (!padDisp) return;
+            padDisp.textContent = (padBuf + '----').slice(0, 4);
+            padDisp.className = 'disp';
+        }
+        function padOpen(hint, cb) {
+            leaveLock();                     // 锁着鼠标就点不到键盘上的数字键
+            padBuf = ''; padCB = cb; padHint0 = hint;
+            if (padHint) { padHint.textContent = hint; padHint.className = 'hint'; }
+            padDraw();
+            if (padEl) padEl.classList.add('on');
+        }
+        function padHide() { if (padEl) padEl.classList.remove('on'); padCB = null; }
+        // 错了要看得出来：红字 + 抖一下 + 说清差在哪
+        function padErr(msg) {
+            if (padDisp) padDisp.className = 'disp err';
+            if (padHint) { padHint.textContent = msg; padHint.className = 'hint err'; }
+            var box = padEl ? padEl.querySelector('.box') : null;
+            if (box) { box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake'); }
+            tone(170, 0.14, 'square', 0.05, 95);
+            setTimeout(function () { if (box) box.classList.remove('shake'); }, 340);
+            setTimeout(function () {
+                if (padDisp) padDisp.className = 'disp';
+                if (padHint) { padHint.textContent = padHint0; padHint.className = 'hint'; }
+            }, 900);
+        }
+        function padEnter() {
+            if (padBuf.length < 4) { padErr('要四位数字 · 现在只有 ' + padBuf.length + ' 位'); return; }
+            var v = padBuf, cb = padCB;
+            var ok = cb ? cb(v) : false;
+            if (ok) {                                   // 对了：绿字「锁开了」先留在屏上
+                if (padDisp) padDisp.className = 'disp ok';
+                if (padHint) { padHint.textContent = '锁 开 了'; padHint.className = 'hint ok'; }
+                setTimeout(padHide, 650);
+            } else {
+                padOpen(padHint0, cb);                  // 错了：重开键盘并报「密码不对」
+                padErr('密码不对 · 锁芯弹了回去');
+            }
+        }
+
+        /* ---------- 长按（上发条）：按一下就能看到现在还剩多少 ---------- */
+        var holdEl = $('hold'), holdBar = $('hold-bar'), holdOn = null;
+        var holdLabel = holdEl ? holdEl.querySelector('.t') : null;
+        function windPct() { return Math.round(Math.max(0, S.wind) / WIND_MAX * 100); }
+        function windLabel() { return '发条 ' + windPct() + '%'; }
+        function holdBegin(label, cb) {
+            if (!holdEl) return;
+            if (holdLabel) holdLabel.textContent = label;
+            holdEl.classList.add('on');
+            holdOn = cb;
+        }
+        function holdEnd() {
+            holdOn = null;
+            // 松手后多留 0.8 秒，让人看清「还剩多少」
+            setTimeout(function () { if (!holdOn && holdEl) holdEl.classList.remove('on'); }, 800);
+        }
+        function holdTick(dt) {
+            if (!holdOn) return;
+            if (holdBar) holdBar.style.width = windPct() + '%';
+            if (holdLabel) holdLabel.textContent = windLabel();
+            holdOn(dt);
+            if (S.wind >= WIND_MAX) { if (holdLabel) holdLabel.textContent = '发条 满'; holdEnd(); }
+        }
+
+        /* ---------- 右上角噪音指数 ---------- */
+        var nzAcc = 0;
+        function noiseTick(dt) {
+            nzAcc += dt; if (nzAcc < 0.12) return; nzAcc = 0;
+            var bar = $('noise-bar'), txt = $('noise-t');
+            if (bar) {
+                bar.style.width = Math.round(S.noise * 100) + '%';
+                bar.style.background = S.noise > .6 ? '#c1453f' : (S.noise > .3 ? '#c08a4a' : '#6b7f96');
+            }
+            if (txt) {
+                txt.textContent = S.noise > .6 ? '太响了' : (S.noise > .3 ? '有点吵' : '安静');
+                txt.className = 'vl' + (S.noise > .6 ? ' bad' : (S.noise > .3 ? ' warn' : ''));
+            }
+        }
+
+        /* ---------- 背包 ---------- */
+        function bagAdd(name) {
+            if (S.bag.indexOf(name) < 0) { S.bag.push(name); bagDraw(); }
+        }
+        function bagDraw() {
+            var b = $('bag'); if (!b) return;
+            b.innerHTML = '';
+            for (var i = 0; i < S.bag.length; i++) {
+                var s = document.createElement('span'); s.textContent = S.bag[i]; b.appendChild(s);
+            }
+        }
+
+        /* ══════════ 声音：全部现场合成，不依赖音频文件 ══════════ */
+        var ac = null, mgain = null, sndOn = false, amb = null, gestured = false;
+        function acx() {
+            if (!ac) {
+                if (!gestured) return null;       // 用户还没碰过页面：别急着建，建了也会被浏览器挂起
+                var C = window.AudioContext || window.webkitAudioContext;
+                if (!C) return null;
+                ac = new C();
+                mgain = ac.createGain(); mgain.gain.value = 0.9; mgain.connect(ac.destination);
+            }
+            if (ac.state === 'suspended') ac.resume();
+            return ac;
+        }
+        function tone(f, d, type, vol, to) {
+            if (!sndOn) return; var a = acx(); if (!a) return;
+            var o = a.createOscillator(), g = a.createGain();
+            o.type = type || 'sine';
+            o.frequency.setValueAtTime(f, a.currentTime);
+            if (to) o.frequency.exponentialRampToValueAtTime(to, a.currentTime + d);
+            g.gain.setValueAtTime(0.0001, a.currentTime);
+            g.gain.exponentialRampToValueAtTime(vol || 0.08, a.currentTime + 0.012);
+            g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + d);
+            o.connect(g); g.connect(mgain);
+            o.start(); o.stop(a.currentTime + d + 0.03);
+        }
+        function nburst(d, vol, freq, q) {
+            if (!sndOn) return; var a = acx(); if (!a) return;
+            var len = Math.max(1, Math.floor(a.sampleRate * d));
+            var buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
+            for (var i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+            var src = a.createBufferSource(); src.buffer = buf;
+            var bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq || 900; bp.Q.value = q || 1.2;
+            var g = a.createGain(); g.gain.value = vol || 0.1;
+            src.connect(bp); bp.connect(g); g.connect(mgain); src.start();
+        }
+        function ambStart() {
+            if (!sndOn) return; var a = acx(); if (!a || amb) return;
+            var len = a.sampleRate * 2, buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
+            for (var i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+            var src = a.createBufferSource(); src.buffer = buf; src.loop = true;
+            var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260;
+            var g = a.createGain(); g.gain.value = 0.035;                 // 环境低沉白噪音
+            var dr = a.createOscillator(); dr.type = 'sine'; dr.frequency.value = 54;
+            var dg = a.createGain(); dg.gain.value = 0.028;               // 低频铺垫
+            src.connect(lp); lp.connect(g); g.connect(mgain);
+            dr.connect(dg); dg.connect(mgain);
+            src.start(); dr.start();
+            amb = { src: src, dr: dr };
+        }
+        function ambStop() {
+            if (!amb) return;
+            try { amb.src.stop(); amb.dr.stop(); } catch (e) { }
+            amb = null;
+        }
+        function sfxClick() { tone(760, 0.05, 'square', 0.03); }
+        // 浏览器只允许「用户手势里」真正出声：提前创建的 AudioContext 会一直是 suspended，
+        // 所以任何一次点击 / 按键 / 触摸都试着把它拉起来（手势里调 resume 才算数）
+        function audioUnlock() {
+            if (!sndOn) return;
+            var a = acx();
+            if (!a) return;
+            if (a.state !== 'running' && a.resume) { try { a.resume(); } catch (e) { } }
+            if (S.run) {
+                if (!amb) ambStart();               // 之前没起来的环境音补上
+                if (bgmEl && bgmEl.paused) bgmStart();   // 音乐被浏览器拦了就再试一次
+            }
+        }
+        ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+            window.addEventListener(ev, function () { gestured = true; audioUnlock(); }, { passive: true });
+        });
+
+        /* 背景音乐：audio/true.mp3，循环，淡入淡出，跟着声音开关一起走 */
+        var bgmEl = $('bgm'), BGM_VOL = 0.3, bgmVol = 0, bgmRamp = null;
+        function bgmFade(to, secs) {
+            if (!bgmEl) return;
+            if (bgmRamp) { clearInterval(bgmRamp); bgmRamp = null; }
+            var step = (to - bgmVol) / Math.max(1, (secs || 2) * 20);
+            bgmRamp = setInterval(function () {
+                bgmVol += step;
+                if ((step > 0 && bgmVol >= to) || (step < 0 && bgmVol <= to)) {
+                    bgmVol = to;
+                    clearInterval(bgmRamp); bgmRamp = null;
+                    if (bgmVol <= 0) { try { bgmEl.pause(); } catch (e) { } }
+                }
+                try { bgmEl.volume = Math.max(0, Math.min(1, bgmVol)); } catch (e) { }
+            }, 50);
+        }
+        function bgmStart() {
+            if (!bgmEl || !sndOn) return;
+            try {
+                if (bgmEl.paused) { bgmEl.volume = bgmVol; var p = bgmEl.play(); if (p && p.catch) p.catch(function () { }); }
+            } catch (e) { }
+            bgmFade(BGM_VOL, 2.6);
+        }
+        function bgmStop() { if (bgmEl && !bgmEl.paused) bgmFade(0, 0.9); }
+        function sfxTick() { nburst(0.035, 0.05, 2600, 3); }             // 钟表滴答
+        function sfxStep() {                                              // 远处走廊脚步
+            nburst(0.09, 0.05, 180, 1.1);
+            setTimeout(function () { nburst(0.09, 0.045, 160, 1.1); }, 330);
+        }
+        function sfxHeart() {                                             // 心跳
+            var v = 0.05 + S.heart * 0.16;
+            tone(62, 0.13, 'sine', v, 40);
+            setTimeout(function () { tone(56, 0.16, 'sine', v * 0.8, 36); }, 165);
+        }
+        function sfxBell() {                                              // 铜铃铛
+            tone(1860, 0.9, 'triangle', 0.16, 1500);
+            tone(2480, 0.75, 'triangle', 0.08, 2100);
+            setTimeout(function () { tone(1720, 0.7, 'triangle', 0.09, 1400); }, 180);
+        }
+        function sfxScream() {                                            // 发条玩具失控
+            tone(420, 1.5, 'sawtooth', 0.13, 2200);
+            nburst(1.2, 0.09, 1800, 0.8);
+            setTimeout(function () { tone(300, 0.9, 'square', 0.1, 900); }, 700);
+        }
+        function sfxKick() {                                              // 踹门
+            nburst(0.35, 0.35, 140, 0.7);
+            tone(90, 0.5, 'sine', 0.28, 42);
+        }
+        var tickAcc = 0, stepWait = 9;
+        function sndTick(dt) {
+            if (!sndOn) return;
+            tickAcc += dt;
+            if (tickAcc >= 1) { tickAcc -= 1; sfxTick(); }
+            stepWait -= dt;
+            if (stepWait <= 0) { stepWait = 11 + Math.random() * 16; sfxStep(); }
+            if (S.heart > 0.12) {
+                heartAcc -= dt;
+                if (heartAcc <= 0) { heartAcc = 1.5 - S.heart * 0.85; sfxHeart(); }
+            }
+        }
+        var heartAcc = 0;
+
+        /* 声音开关：顶栏按钮 / 黑幕上的选项 / M 键，三者共用，并记住上次的选择 */
+        var sndBtn = $('snd-btn'), boSndOn = $('bo-snd-on'), boSndOff = $('bo-snd-off');
+        try {                                     // file:// 下 localStorage 可能不可用
+            var sv = localStorage.getItem('office3d.snd');
+            sndOn = (sv !== '0');                 // 默认开，除非上次特意关过
+        } catch (e) { sndOn = true; }
+        function setSound(on, quiet) {
+            sndOn = !!on;
+            try { localStorage.setItem('office3d.snd', sndOn ? '1' : '0'); } catch (e) { }
+            if (sndBtn) {
+                sndBtn.textContent = '声音 ' + (sndOn ? '开' : '关');
+                sndBtn.className = 'btn' + (sndOn ? '' : ' off');      // 关着的时候按钮要看得出来
+            }
+            if (boSndOn) boSndOn.className = 'btn' + (sndOn ? ' primary' : '');
+            if (boSndOff) boSndOff.className = 'btn' + (sndOn ? '' : ' primary');
+            if (quiet) return;                    // quiet：只刷界面，不碰音频（开局那次）
+            if (sndOn) { audioUnlock(); ambStart(); bgmStart(); toast('声音已开启：背景音乐、钟表、走廊脚步、心跳'); }
+            else { ambStop(); bgmStop(); toast('声音已关闭 —— 点右上角「声音 关」或按 M 可以再打开'); }
+        }
+        if (sndBtn) sndBtn.addEventListener('click', function () { setSound(!sndOn); });
+        if (boSndOn) boSndOn.addEventListener('click', function (e) { e.stopPropagation(); setSound(true); });
+        if (boSndOff) boSndOff.addEventListener('click', function (e) { e.stopPropagation(); setSound(false); });
+        setSound(sndOn, true);                    // 开局先把界面上的高亮刷一遍
+
+        /* ══════════ 噪音 / 危险判定 ══════════ */
+        function noise(v, why, quiet) {
+            if (S.over) return false;
+            S.noise = Math.min(1, S.noise + v);
+            S.heart = Math.min(1, S.heart + v * 1.5);
+            if (why && !quiet) toast(why, v >= 0.3);
+            if (v >= 0.12) sfxHeart();
+            if (S.t >= SAFE_T) {                       // 高危期：噪音越大，越可能被听见
+                var p = Math.min(1, (S.t - SAFE_T) / (LIMIT_T - SAFE_T));
+                var chance = Math.min(0.9, v * (0.45 + p * 1.7));
+                if (Math.random() < chance) { caught(why || '门外的人听见了。'); return true; }
+            } else if (v >= 0.5) {
+                toast('你紧张的屏住了呼吸，还好没人进来', true);
+            }
+            return false;
+        }
+
+        /* ══════════ 结局 ══════════ */
+        var caughtT = -1, lookTo = null, kicked = false, overShown = false;
+        function caught(reason) {
+            if (S.over) return;
+            S.over = true; S.end = 'caught'; S.reason = reason || '';
+            caughtT = 0; kicked = false; overShown = false;
+            dragStop(); holdEnd();
+            var dx = 2.6 - camera.position.x, dz = 3.5 - camera.position.z;
+            lookTo = { yaw: Math.atan2(-dx, -dz), pitch: -0.04 };   // 猛地回头看向大门
+            sfxStep();
+        }
+        function escapeOffice() {
+            if (S.over) return;
+            S.over = true; S.end = 'escape';
+            dragStop(); holdEnd();
+            showOver('撤 离 成 功',
+                '你从门缝里挤出去，顺手把门带回了原来的角度。<br>' +
+                '走廊尽头的拖把声还在往上爬，但这一次它不会停在七楼。<br>' +
+                '带回线索 <b>' + S.clues + '</b> 条。',
+                '秦主任办公室 · 7F · ' + fmt(S.t));
+        }
+        function showOver(title, html, sub) {
+            var o = $('over'); if (!o) return;
+            leaveLock();                     // 不放鼠标，结局按钮点不到，只能强制关网页
+            ambStop(); bgmStop();            // 环境音和音乐一起收掉
+            setTxt('over-t1', title);
+            var t2 = $('over-t2'); if (t2) t2.innerHTML = html;
+            setTxt('over-t3', sub || '');
+            o.classList.add('on');
+            var b = $('over-btn');
+            if (b) b.onclick = function () { location.reload(); };
+        }
+
+        /* ══════════ 录像滤镜：时间码 + 偶尔的信号撕裂 ══════════ */
+        var recTc = $('rec-tc'), recGl = $('rec-glitch'), recZoom = $('rec-zoom'), zoomTxt = '';
+        var glitchWait = 3 + Math.random() * 7, glitchT = -1;
+        function recTick(dt) {
+            if (recZoom) {                     // 变焦读数：焦距越窄，倍率越大
+                var z = 'ZOOM ×' + (FOV_MAX / camera.fov).toFixed(1);
+                if (z !== zoomTxt) { zoomTxt = z; recZoom.textContent = z; }
+            }
+            if (recTc) {                       // 18:00 开机，跟着潜入时间走
+                var s = Math.floor(S.t), hh = 18 + Math.floor(s / 3600), mm = Math.floor(s % 3600 / 60), ss = s % 60;
+                recTc.textContent = p2(hh) + ':' + p2(mm) + ':' + p2(ss);
+            }
+            if (!recGl) return;
+            if (glitchT < 0) {
+                glitchWait -= dt;
+                if (glitchWait > 0) return;
+                glitchT = 0; glitchWait = 4 + Math.random() * 9;
+                recGl.style.top = (10 + Math.random() * 75) + '%';
+                recGl.style.height = (2 + Math.random() * 7) + '%';
+                recGl.style.opacity = '0.5';
+                return;
+            }
+            glitchT += dt;
+            if (glitchT < 0.09) return;
+            recGl.style.opacity = '0';
+            recGl.style.height = '0';
+            glitchT = -1;
+        }
+
+        /* ══════════ 开局黑幕 ══════════ */
+        function introSeq() {
+            var bo = $('blackout'), b1 = $('bo-1'), b2 = $('bo-2');
+            var done1 = false, done2 = false, gone = false;
+            function finish() {
+                if (gone) return; gone = true;
+                if (bo) { bo.classList.add('gone'); setTimeout(function () { bo.style.display = 'none'; }, 1300); }
+                S.run = true;
+                setTimeout(function () {
+                    if (!S.torch) toast('真黑');
+                }, 1600);
+                if (!sndOn) setTimeout(function () {
+                    toast(' ');
+                }, 3200);
+                // 这一次点击算用户手势，先把音频上下文拉起来，再决定要不要环境音 / 音乐
+                audioUnlock();
+                if (sndOn) { acx(); ambStart(); bgmStart(); }
+            }
+            if (!bo) { S.run = true; return; }
+            bo.classList.add('show');
+            bo.addEventListener('click', finish);
+            setTimeout(function () { if (!gone) { if (b1) b1.classList.add('on'); sfxStep(); } }, 800);
+            setTimeout(function () { if (!gone && b2) b2.classList.add('on'); }, 4400);
+            setTimeout(finish, 8600);
+        }
+
+        /* ══════════ 房间 ══════════ */
+        var RW = 9, RD = 7, RH = 3.1, WT = 0.16;   // 宽 / 深 / 高 / 墙厚
+
+        // 地面
+        var floor = plane(RW + 1, RD + 1, MAT.floor, 0, 0, 0);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+
+        // 天花板
+        var ceil = plane(RW + 1, RD + 1, MAT.ceil, 0, RH, 0);
+        ceil.rotation.x = Math.PI / 2;
+
+        // 踢脚线
+        var skirt = std(0xcfc9bd, .8);
+        box(RW, 0.12, 0.04, skirt, 0, 0.06, -RD / 2 + 0.03);
+        box(RW, 0.12, 0.04, skirt, 0, 0.06, RD / 2 - 0.03);
+        box(0.04, 0.12, RD, skirt, -RW / 2 + 0.03, 0.06, 0);
+        box(0.04, 0.12, RD, skirt, RW / 2 - 0.03, 0.06, 0);
+
+        // 北墙（-Z）：三扇窗
+        var wz = -RD / 2;
+        box(RW, 0.98, WT, MAT.wall, 0, 0.49, wz);                    // 窗台下
+        box(RW, RH - 2.48, WT, MAT.wall, 0, 2.48 + (RH - 2.48) / 2, wz); // 窗上
+        box(0.92, 1.5, WT, MAT.wall, -4.04, 1.73, wz);               // 左垛
+        box(0.92, 1.5, WT, MAT.wall, 4.04, 1.73, wz);                // 右垛
+        box(0.09, 1.5, 0.14, MAT.white, -1.22, 1.73, wz);            // 竖框
+        box(0.09, 1.5, 0.14, MAT.white, 1.22, 1.73, wz);
+        box(7.2, 0.07, 0.14, MAT.white, 0, 1.72, wz);                // 横框
+        // 玻璃
+        var glass = plane(7.16, 1.46, MAT.glass, 0, 1.73, wz + 0.02);
+        glass.userData.tip = '窗：操场上有人在打篮球，而你在这里。';
+        glass.userData.name = '窗户';
+        looks.push(glass);
+        // 窗台
+        box(7.4, 0.07, 0.34, std(0xe4e0d6, .6), 0, 0.99, wz + 0.16);
+        // 窗帘：夜里被风一下一下地吹
+        var curtainMat = std(0x5f5c56, .95);
+        var curtainL = box(0.55, 1.72, 0.05, curtainMat, -3.5, 1.85, wz + 0.12);
+        var curtainR = box(0.55, 1.72, 0.05, curtainMat, 3.5, 1.85, wz + 0.12);
+        // 窗外
+        var outside = plane(34, 17, MAT.outside, 0, 2.2, -13);
+        outside.renderOrder = -1;
+        // 窗外：偶尔贴着玻璃掠过一道黑影（纯惊吓，没有任何伤害）
+        var ghost = plane(1.15, 2.2, new THREE.MeshBasicMaterial({
+            color: 0x02040a, transparent: true, opacity: .97, fog: false, side: THREE.DoubleSide
+        }), 0, 1.62, -7);
+        ghost.visible = false;
+
+        // 南墙（+Z）：门洞 x∈[2.1,3.1]
+        var sz = RD / 2;
+        box(6.6, RH, WT, MAT.wall, -1.2, RH / 2, sz);
+        box(1.4, RH, WT, MAT.wall, 3.8, RH / 2, sz);
+        box(1.0, RH - 2.1, WT, MAT.wall, 2.6, 2.1 + (RH - 2.1) / 2, sz);
+        // 门框 + 门
+        var doorFrame = std(0x8f6a48, .8);
+        box(0.09, 2.14, 0.1, doorFrame, 2.05, 1.07, sz);
+        box(0.09, 2.14, 0.1, doorFrame, 3.15, 1.07, sz);
+        box(1.2, 0.09, 0.1, doorFrame, 2.6, 2.09, sz);
+        // 门：装在合页上，被抓的时候会被一脚踹开
+        var doorPivot = grp(2.08, 1.03, sz - 0.02);
+        var door = box(0.96, 2.06, 0.06, MAT.woodDark, 0.52, 0, 0, doorPivot);
+        mark(door, '门', '门：没锁。推开就是走廊——走之前想清楚带走了什么。');
+        door.userData.pick = 'door';
+        door.userData.onAct = function () {
+            if (S.clues <= 0) {
+                panelShow('撤 离', '现在就走？你什么都没拿到。',
+                    '<div class="doc">门缝里漏进来的走廊灯，把你的影子拉得很长。<br>' +
+                    '你已经拿到的线索：' + S.clues + ' 条。</div>' +
+                    '<div class="acts"><button class="btn" id="go-out" type="button">推门出去</button></div>');
+                var g = $('go-out');
+                if (g) g.onclick = function () { panelHide(); escapeOffice(); };
+                return;
+            }
+            panelShow('撤 离', '把门推开一条缝，先看一眼走廊。',
+                '<div class="doc">拖把蹭着地面的声音在下一层。<br>你手里有：' +
+                (S.bag.length ? S.bag.join('、') : '空手') + '</div>' +
+                '<div class="acts"><button class="btn" id="go-out" type="button">推门出去</button></div>');
+            var g2 = $('go-out');
+            if (g2) g2.onclick = function () { panelHide(); escapeOffice(); };
+        };
+        PROPS.push(door);
+        var plate = plane(0.62, 0.2, MAT.doorPlate, 2.6, 1.72, sz - 0.06);
+        plate.rotation.y = Math.PI;
+        // 门把手
+        cyl(0.03, 0.03, 0.12, MAT.metal, 2.85, 1.05, sz - 0.08, scene, 12).rotation.z = Math.PI / 2;
+
+        // 东墙（+X）
+        box(WT, RH, RD, MAT.wall, RW / 2, RH / 2, 0);
+        // 西墙（-X）
+        box(WT, RH, RD, MAT.wall, -RW / 2, RH / 2, 0);
+
+        /* ══════════ 白板（值日表） ══════════ */
+        var boardG = grp(-1.7, 1.75, sz - 0.1, Math.PI);
+        box(2.7, 1.2, 0.05, MAT.white, 0, 0, 0, boardG);
+        box(2.5, 1.0, 0.02, MAT.board, 0, 0, 0.04, boardG);
+        box(2.7, 0.05, 0.08, MAT.grey, 0, -0.62, 0.02, boardG);   // 笔槽
+        box(0.12, 0.02, 0.02, MAT.red, -0.5, -0.6, 0.05, boardG);
+        box(0.12, 0.02, 0.02, MAT.blue, 0.4, -0.6, 0.05, boardG);
+        mark(boardG, '值日表', '值日表：第 9 周。周三那一行被标了黄，备注栏写着「办公室谈话（长期）」。');
+
+        /* ══════════ 挂钟 ══════════ */
+        var clockG = grp(1.0, 2.45, sz - 0.14, Math.PI);
+        cyl(0.17, 0.17, 0.05, MAT.dark, 0, 0, 0, clockG).rotation.x = Math.PI / 2;
+        plane(0.31, 0.31, MAT.clockFace, 0, 0, 0.031, clockG);
+        var handMat = std(0x22262b, .6);
+        var pivotH = new THREE.Group(); pivotH.position.set(0, 0, 0.038); clockG.add(pivotH);
+        var pivotM = new THREE.Group(); pivotM.position.set(0, 0, 0.044); clockG.add(pivotM);
+        var hourHand = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.09, 0.008), handMat);
+        hourHand.position.set(0, 0.045, 0); pivotH.add(hourHand);
+        var minHand = new THREE.Mesh(new THREE.BoxGeometry(0.013, 0.13, 0.008), handMat);
+        minHand.position.set(0, 0.065, 0); pivotM.add(minHand);
+        cyl(0.014, 0.014, 0.02, MAT.red, 0, 0, 0.05, clockG).rotation.x = Math.PI / 2;
+        mark(clockG, '挂钟', '挂钟：' + CLOCK_TXT + '。指针一动不动，电池早被谁抠走了。');
+        clockG.userData.pick = 'clock';
+        clockG.userData.onAct = function () {
+            panelShow('挂钟', '墙上的时间',
+                '<div class="doc">时针停在 ' + CLOCK_TXT + '。<br>' +
+                '分针不动，秒针也不动。<br><br>' +
+                '「万物事理，时间会给出答案。」</div>', '抬头（Esc）');
+        };
+        PROPS.push(clockG);
+
+        /* ══════════ 课程表（东墙，板面朝 -X） ══════════ */
+        var schedG = grp(RW / 2 - 0.1, 1.8, 0.4, 0);
+        box(0.03, 0.78, 0.58, MAT.white, 0, 0, 0, schedG);
+        var schedFace = plane(0.5, 0.7, new THREE.MeshStandardMaterial({ map: schedTex, roughness: .7 }), -0.017, 0, 0, schedG);
+        schedFace.rotation.y = -Math.PI / 2;
+        mark(schedG, '课程表', '课程表：周三下午第三节，被「办公室谈话」永久占用了。');
+
+        /* ══════════ 标语（西墙，板面朝 +X） ══════════ */
+        var mottoG = grp(-RW / 2 + 0.1, 2.35, -0.6, 0);
+        box(0.04, 0.62, 1.9, MAT.white, 0, 0, 0, mottoG);
+        var mottoFace = plane(1.82, 0.55, new THREE.MeshStandardMaterial({ map: mottoTex, roughness: .7 }), 0.023, 0, 0, mottoG);
+        mottoFace.rotation.y = Math.PI / 2;
+        mark(mottoG, '标语', '「学高为师，身正为范」——你正在心里默背第二句。');
+
+        /* ══════════ 天花板：日光灯 + 吊扇 ══════════ */
+        function ceilingLamp(x, z) {
+            var g = grp(x, RH - 0.06, z);
+            box(2.6, 0.1, 0.3, MAT.white, 0, 0, 0, g);
+            box(2.45, 0.02, 0.22, MAT.lamp, 0, -0.05, 0, g);   // 灯管是灭的
+            return g;
+        }
+        var lamp1 = ceilingLamp(0, -1.7);
+        var lamp2 = ceilingLamp(0, 1.5);
+        mark(lamp1, '日光灯', '日光灯：嗡——嗡——，声音比老师的话还催眠。');
+        mark(lamp2, '日光灯', '日光灯：嗡——嗡——，声音比老师的话还催眠。');
+
+        var fan = grp(0, RH - 0.16, 0);
+        cyl(0.035, 0.035, 0.24, MAT.metal, 0, 0.1, 0, fan, 12);
+        cyl(0.13, 0.13, 0.09, MAT.white, 0, -0.04, 0, fan, 16);
+        for (var fi = 0; fi < 3; fi++) {
+            var holder = new THREE.Group();
+            holder.rotation.y = fi * Math.PI * 2 / 3;
+            fan.add(holder);
+            var blade = box(0.86, 0.015, 0.16, MAT.white, 0.5, -0.06, 0, holder);
+            blade.rotation.z = 0.09;
+        }
+        mark(fan, '吊扇', '吊扇：转得很慢，像在替你倒计时。');
+
+        /* ══════════ 办公桌 ══════════ */
+        var allDrawers = [];                   // 每张桌子的抽屉都可以拉开
+
+        function desk(x, z, ry) {
+            var g = grp(x, 0, z, ry);
+            box(1.85, 0.05, 0.82, MAT.woodTop, 0, 0.755, 0, g).receiveShadow = true;
+            box(0.44, 0.7, 0.74, MAT.wood, -0.68, 0.38, 0, g);        // 抽屉柜
+            var drawers = [];
+            for (var i = 0; i < 3; i++) {
+                var baseY = 0.19 + i * 0.22;
+                var d = new THREE.Group();
+                d.position.set(-0.68, baseY, 0.375);
+                g.add(d);
+                box(0.36, 0.19, 0.02, MAT.woodDark, 0, 0, 0, d);            // 面板
+                box(0.16, 0.025, 0.02, MAT.metal, 0, 0, 0.022, d);          // 把手
+                // 抽屉盒（上面开口，拉出来才看得见里面）
+                box(0.34, 0.014, 0.5, MAT.woodIn, 0, -0.088, -0.25, d);     // 底
+                box(0.014, 0.19, 0.5, MAT.woodIn, -0.165, 0, -0.25, d);     // 左壁
+                box(0.014, 0.19, 0.5, MAT.woodIn, 0.165, 0, -0.25, d);      // 右壁
+                box(0.34, 0.19, 0.014, MAT.woodIn, 0, 0, -0.493, d);        // 后壁
+                // 里面随手扔的东西
+                cyl(0.005, 0.005, 0.15, i === 0 ? MAT.red : (i === 2 ? MAT.blue : MAT.black),
+                    0.07, -0.076, -0.09, d, 8).rotation.z = Math.PI / 2;
+                box(0.15, 0.01, 0.1, MAT.paper, -0.06, -0.079, -0.12, d);
+                d.userData.pick = 'drawer';
+                d.userData.baseY = baseY;
+                d.userData.closedZ = 0.375;
+                d.userData.cur = 0;                 // 0 关 / 1 全开
+                d.userData.target = 0;
+                drawers.push(d);
+                allDrawers.push(d);
+            }
+            box(0.05, 0.7, 0.74, MAT.wood, 0.88, 0.38, 0, g);         // 侧板
+            box(1.7, 0.04, 0.06, MAT.woodDark, 0, 0.45, -0.3, g);     // 挡板
+            g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+            g.userData.drawers = drawers;
+            return g;
+        }
+
+        // 主桌（老师座位，正对玩家）
+        var mainDesk = desk(0, -0.7, 0);
+        mark(mainDesk, '办公桌', '办公桌：桌面整洁得可疑，抽屉被人翻过又匆匆推上。');
+        var hireDrawer = mainDesk.userData.drawers[1];      // 中层抽屉：没关严，留着一道缝
+
+        // 主桌上的东西（组内直接使用世界坐标）
+        var dm = grp(0, 0, 0);
+        // 显示器（背面朝玩家）
+        var mon = grp(0, 0.78, -0.95, 0);
+        cyl(0.12, 0.12, 0.03, MAT.dark, 0, 0.015, 0, mon, 20);
+        box(0.06, 0.24, 0.05, MAT.dark, 0, 0.14, 0, mon);
+        var monBody = box(0.6, 0.37, 0.035, MAT.dark, 0, 0.36, 0, mon);
+        plane(0.55, 0.32, MAT.screenLit, 0, 0.36, -0.021, mon).rotation.y = Math.PI;
+        var monGlow = new THREE.PointLight(0x9dc4ff, 0.35, 2.2, 2);
+        monGlow.position.set(0, 0.36, -0.15); mon.add(monGlow);
+        mark(mon, '显示器', '显示器背面：屏线缠成鸟窝，贴着一张「勿关机」的便利贴。');
+        // 便利贴
+        plane(0.09, 0.09, new THREE.MeshStandardMaterial({ map: noteTex('勿\n关机'), roughness: .9 }), 0.33, 0.3, 0.024, mon);
+        // 键盘
+        var kb = grp(-0.02, 0, -0.62);
+        box(0.44, 0.02, 0.15, MAT.dark, 0, 0.775, 0, kb);
+        box(0.4, 0.006, 0.11, MAT.grey, 0, 0.787, 0, kb);
+        mark(kb, '键盘', '键盘：W 键磨损最严重——据说是在改成绩。');
+        // 鼠标
+        box(0.07, 0.03, 0.11, MAT.dark, 0.32, 0.79, -0.6, dm);
+        // 马克杯
+        var cup = grp(-0.62, 0.78, -0.62);
+        cyl(0.045, 0.04, 0.11, MAT.cup, 0, 0.055, 0, cup, 18);
+        cyl(0.042, 0.042, 0.01, std(0x6b4a2f, .9), 0, 0.108, 0, cup, 18);
+        var torus = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.008, 8, 16), MAT.cup);
+        torus.position.set(0.05, 0.055, 0); torus.rotation.y = Math.PI / 2; cup.add(torus);
+        mark(cup, '保温杯', '保温杯：枸杞三颗，茶叶两片，中年教师的浪漫。');
+        // 笔筒
+        var penCup = grp(0.66, 0.78, -0.92);
+        cyl(0.05, 0.05, 0.13, std(0x3d4a57, .7), 0, 0.065, 0, penCup, 16);
+        for (var pi = 0; pi < 5; pi++) {
+            var pen = cyl(0.006, 0.006, 0.19, pi === 0 ? MAT.red : (pi === 1 ? MAT.blue : MAT.black),
+                          (Math.random() - 0.5) * 0.05, 0.15, (Math.random() - 0.5) * 0.05, penCup, 6);
+            pen.rotation.z = (Math.random() - 0.5) * 0.35;
+            pen.rotation.x = (Math.random() - 0.5) * 0.35;
+        }
+        mark(penCup, '笔筒', '笔筒：红笔永远不够用，黑笔永远失踪。');
+        // 作业本堆
+        var hw = grp(-0.62, 0.78, -0.95);
+        for (var hi = 0; hi < 9; hi++) {
+            var s = box(0.25, 0.014, 0.33, MAT.paper, (Math.random() - .5) * .02, 0.012 + hi * 0.016, (Math.random() - .5) * .02, hw);
+            s.rotation.y = (Math.random() - .5) * 0.18;
+        }
+        box(0.25, 0.012, 0.33, std(0xd9c9a8, .9), 0, 0.16, 0, hw);
+        mark(hw, '作业堆', '作业堆：从上周一动不动，正在缓慢演化成化石。');
+        // 教案本
+        var plan = grp(-0.16, 0.78, -0.95);
+        box(0.21, 0.022, 0.29, std(0xf3efe2, .9), 0, 0.011, 0, plan);
+        box(0.21, 0.008, 0.29, std(0x2f6fa8, .9), 0, 0.026, 0, plan);
+        mark(plan, '教案本', '教案本：写得比学生的课堂笔记还工整。');
+        // 相框
+        var photo = grp(-0.82, 0.78, -0.3, 0.3);
+        box(0.02, 0.14, 0.11, MAT.dark, 0, 0.075, 0, photo);
+        box(0.01, 0.11, 0.08, std(0xdfe6ee, .5), 0.012, 0.075, 0, photo);
+        mark(photo, '相框', '相框：毕业照。第一排最左边那个，笑得最开心。');
+        // 台灯
+        var lamp = grp(0.74, 0.78, -0.34);
+        cyl(0.08, 0.08, 0.02, MAT.dark, 0, 0.01, 0, lamp, 18);
+        var arm = cyl(0.012, 0.012, 0.42, MAT.dark, 0, 0.22, 0, lamp, 8);
+        arm.rotation.z = 0.22;
+        var shade = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.11, 18, 1, true), std(0x4a5259, .6, .3));
+        shade.position.set(-0.16, 0.42, 0.05); shade.rotation.set(Math.PI, 0, 0.5); lamp.add(shade);
+        var bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), MAT.lamp);
+        bulb.position.set(-0.16, 0.4, 0.05); lamp.add(bulb);
+        // 台灯是关着的，只有灯泡反着一点窗外的光
+        mark(lamp, '台灯', '台灯：昨晚十点，它还亮着。');
+        // 检讨书
+        var letter = plane(0.22, 0.29, MAT.letter, 0.3, 0.786, -0.42);
+        letter.rotation.x = -Math.PI / 2;
+        letter.rotation.z = -0.12;
+        mark(letter, '检讨书', '检讨书：第三行那个错别字，你已经改了四遍。');
+        // 这个抽屉没关严，留着一道缝——像有人翻过又匆匆推上（里面已经空了）
+        hireDrawer.userData.closedZ = 0.405;
+        hireDrawer.position.z = 0.405;
+        dm.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+
+        // 抽屉被翻过，成绩单散在桌上和地上
+        var scoreMat = new THREE.MeshStandardMaterial({ map: scoreTex, roughness: .95, side: THREE.DoubleSide });
+        [[-0.28, -0.34, -0.26]].forEach(function (p) {
+            var s = plane(0.21, 0.145, scoreMat, p[0], 0.79, p[1]);
+            s.rotation.x = -Math.PI / 2;
+            s.rotation.z = p[2];
+        });
+        [[0.5, 0.55, 0.7], [1.36, -0.45, -0.5], [-0.78, 0.18, 1.2], [0.08, 1.32, 2.4], [0.75, 0.28, 0.1]].forEach(function (p) {
+            var s = plane(0.21, 0.145, scoreMat, p[0], 0.007, p[1]);
+            s.rotation.x = -Math.PI / 2;
+            s.rotation.z = p[2];
+        });
+
+        /* ══════════ 办公椅 ══════════ */
+        function officeChair(x, z, ry) {
+            var g = grp(x, 0, z, ry);
+            var seatMat = std(0x33383f, .75);
+            box(0.48, 0.09, 0.48, seatMat, 0, 0.47, 0, g);
+            box(0.46, 0.52, 0.08, seatMat, 0, 0.75, -0.22, g);
+            box(0.46, 0.05, 0.07, seatMat, 0, 1.0, -0.22, g);
+            box(0.05, 0.06, 0.3, MAT.dark, -0.26, 0.58, 0.0, g);
+            box(0.05, 0.06, 0.3, MAT.dark, 0.26, 0.58, 0.0, g);
+            box(0.07, 0.18, 0.05, MAT.dark, -0.26, 0.5, 0.12, g);
+            box(0.07, 0.18, 0.05, MAT.dark, 0.26, 0.5, 0.12, g);
+            cyl(0.045, 0.045, 0.34, MAT.metal, 0, 0.27, 0, g, 12);
+            cyl(0.04, 0.04, 0.06, MAT.dark, 0, 0.06, 0, g, 12);
+            for (var i = 0; i < 5; i++) {
+                var leg = box(0.05, 0.035, 0.3, MAT.dark, 0, 0.045, 0.16, g);
+                leg.rotation.y = i * Math.PI * 2 / 5;
+                var w = cyl(0.028, 0.028, 0.02, MAT.black, 0, 0.025, 0.3, g, 10);
+                w.rotation.y = i * Math.PI * 2 / 5;
+            }
+            g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+            return g;
+        }
+        var bossChair = officeChair(0, -1.38, 0.36);   // 椅子被拉出来，歪着，像有人刚起身
+        mark(bossChair, '老师的椅子', '老师的椅子：人不在，气场在。');
+
+        /* ══════════ 靠窗的两张工位 ══════════ */
+        var sideL = desk(-2.7, -2.3, 0);
+        var chairL = officeChair(-2.7, -1.4, Math.PI);
+        mark(sideL, '同事工位', '同事的工位：桌角贴着「明天一定改完」，日期是上个月。');
+        mark(chairL, '空座位', '空座位：椅背还留着体温（大概只是错觉）。');
+
+        var sideR = desk(2.7, -2.3, 0);
+        var chairR = officeChair(2.7, -1.4, Math.PI);
+        mark(sideR, '同事工位', '同事的工位：桌角贴着「明天一定改完」，日期是上个月。');
+        mark(chairR, '空座位', '空座位：椅背还留着体温（大概只是错觉）。');
+
+        // 左工位：显示器斜对玩家
+        var monL = grp(-2.35, 0.78, -2.25, -0.6);
+        cyl(0.11, 0.11, 0.025, MAT.dark, 0, 0.012, 0, monL, 18);
+        box(0.05, 0.2, 0.04, MAT.dark, 0, 0.12, 0, monL);
+        box(0.58, 0.35, 0.03, MAT.dark, 0, 0.34, 0, monL);
+        plane(0.53, 0.3, MAT.screenLit, 0, 0.34, 0.018, monL);
+        var glowL = new THREE.PointLight(0x9dc4ff, 0.3, 2, 2);
+        glowL.position.set(0.1, 0.34, 0.2); monL.add(glowL);
+        mark(monL, '成绩表', '屏幕：Excel 成绩表正在滚动，最后一行用红色标着你的名字。');
+        // 左工位杂物
+        box(0.44, 0.02, 0.14, MAT.dark, -2.7, 0.785, -2.05);
+        cyl(0.042, 0.038, 0.1, std(0xf1f1ee, .4), -3.15, 0.83, -2.1, scene, 16);
+        for (var bi = 0; bi < 5; bi++) {
+            box(0.03, 0.22, 0.16, MAT.book[bi % 8], -3.35 + bi * 0.035, 0.89, -2.45).rotation.z = 0.02 * bi;
+        }
+
+        // 右工位：笔记本电脑 + 眼镜 + 水杯
+        var lap = grp(2.7, 0.78, -2.35);
+        box(0.34, 0.02, 0.24, MAT.grey, 0, 0.01, 0, lap);
+        box(0.32, 0.005, 0.22, MAT.black, 0, 0.022, 0, lap);
+        var lid = box(0.34, 0.24, 0.012, MAT.grey, 0, 0.13, -0.12, lap);
+        lid.rotation.x = -0.32;
+        plane(0.3, 0.2, MAT.screenLit, 0, 0.135, -0.108, lap).rotation.x = -0.32;
+        mark(lap, '笔记本电脑', '笔记本：屏保是「正在批改，请勿打扰」，主人已离席四十分钟。');
+        cyl(0.045, 0.04, 0.12, std(0xbcd6e8, .3), 3.2, 0.84, -2.2, scene, 16);
+        // 眼镜（摊在桌面靠前的位置）
+        var gl = grp(2.6, 0.79, -1.95, 0.25);
+        box(0.19, 0.006, 0.06, MAT.dark, 0, 0.008, 0, gl);
+        var lensMat = std(0xdfeaf2, .12);
+        box(0.06, 0.005, 0.05, lensMat, -0.055, 0.008, 0, gl);
+        box(0.06, 0.005, 0.05, lensMat, 0.055, 0.008, 0, gl);
+        box(0.02, 0.005, 0.05, MAT.dark, -0.093, 0.008, 0, gl);
+        box(0.02, 0.005, 0.05, MAT.dark, 0.093, 0.008, 0, gl);
+        mark(gl, '眼镜', '眼镜：摘下来放在这里，说明主人只是去趟厕所——你还有时间组织语言。');
+
+        /* ══════════ 会客区 ══════════ */
+        var table = grp(2.7, 0, 1.5);
+        cyl(0.46, 0.46, 0.05, MAT.woodTop, 0, 0.72, 0, table, 28);
+        cyl(0.06, 0.06, 0.7, MAT.woodDark, 0, 0.36, 0, table, 12);
+        cyl(0.24, 0.24, 0.03, MAT.woodDark, 0, 0.03, 0, table, 20);
+        cyl(0.09, 0.09, 0.12, std(0xe8e4d8, .9), 0, 0.79, 0, table, 16);
+        mark(table, '会客圆桌', '会客圆桌：桌上摆着从没被喝过的待客茶。');
+        function woodChair(x, z, ry) {
+            var g = grp(x, 0, z, ry);
+            var m = std(0x8f6a48, .8);
+            box(0.42, 0.05, 0.42, m, 0, 0.45, 0, g);
+            box(0.4, 0.5, 0.05, m, 0, 0.7, -0.19, g);
+            [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]].forEach(function (p) {
+                box(0.04, 0.44, 0.04, m, p[0], 0.22, p[1], g);
+            });
+            g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+            return g;
+        }
+        var wc2 = woodChair(3.4, 1.2, -Math.PI / 2 + 0.2);
+        mark(wc2, '等候椅', '等候椅：坐下的人，都在等一句「你先回去吧」。');
+
+        /* ══════════ 书柜 ══════════ */
+        var shelfG = grp(-RW / 2 + 0.26, 0, -1.9);
+        var shelfM = MAT.wood;
+        box(0.05, 1.9, 1.4, shelfM, -0.15, 0.95, 0, shelfG);          // 背板
+        box(0.36, 1.9, 0.05, shelfM, 0.02, 0.95, -0.675, shelfG);     // 左侧板
+        box(0.36, 1.9, 0.05, shelfM, 0.02, 0.95, 0.675, shelfG);      // 右侧板
+        box(0.36, 0.05, 1.4, shelfM, 0.02, 1.875, 0, shelfG);         // 顶板
+        box(0.36, 0.05, 1.4, shelfM, 0.02, 0.025, 0, shelfG);         // 底板
+        for (var si = 0; si < 4; si++) {
+            var yy = 0.30 + si * 0.38;
+            box(0.32, 0.03, 1.3, std(0xd9cdbb, .9), 0.04, yy, 0, shelfG);
+            // 书（书脊朝 +X 即房间内侧）
+            var bx = -0.6;
+            while (bx < 0.6) {
+                var bw = 0.03 + Math.random() * 0.035;
+                var bh = 0.24 + Math.random() * 0.06;
+                var b = box(0.2, bh, bw, MAT.book[(Math.random() * 8) | 0], 0.03, yy + bh / 2 + 0.02, bx + bw / 2, shelfG);
+                if (Math.random() < 0.12) b.rotation.x = 0.22;
+                bx += bw + 0.006;
+            }
+        }
+        shelfG.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+        mark(shelfG, '书柜', '书柜：从上到下没人借过，除了那本《怎样让学生安静》。');
+
+        /* ══════════ 文件柜 ══════════ */
+        var cabG = grp(-RW / 2 + 0.24, 0, 0.7);
+        box(0.4, 1.12, 0.92, std(0xb9bfc4, .55, .35), 0, 0.56, 0, cabG);
+        for (var ci = 0; ci < 4; ci++) {
+            box(0.02, 0.24, 0.8, std(0xc9ced2, .5, .3), 0.2, 0.2 + ci * 0.26, 0, cabG);
+            box(0.03, 0.03, 0.2, MAT.metal, 0.22, 0.2 + ci * 0.26, 0, cabG);
+            plane(0.16, 0.05, MAT.paper, 0.215, 0.27 + ci * 0.26, 0, cabG).rotation.y = Math.PI / 2;
+        }
+        cyl(0.07, 0.07, 0.2, std(0xb35c3c, .8), 0, 1.22, 0, cabG, 14);
+        planPotLeaves(0, 1.12, 0, cabG);
+        // 柜门上钉着一张红字纸条
+        var warn = plane(0.34, 0.19, new THREE.MeshStandardMaterial({ map: warnTex, roughness: .9 }),
+            0.206, 0.72, 0.18, cabG);
+        warn.rotation.y = Math.PI / 2;
+        cabG.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+        mark(cabG, '文件柜', '文件柜：锁着。钥匙在第三格抽屉的教案下面——别问我怎么知道的。');
+
+        /* ══════════ 绿植 ══════════ */
+        function planPotLeaves(x, y, z, parent) {
+            var g = new THREE.Group();
+            g.position.set(x, y, z);
+            (parent || scene).add(g);
+            cyl(0.17, 0.13, 0.26, std(0xb5623c, .85), 0, 0.13, 0, g, 16);
+            cyl(0.175, 0.175, 0.03, std(0x8a4630, .85), 0, 0.26, 0, g, 16);
+            cyl(0.15, 0.15, 0.02, std(0x4a3627, .95), 0, 0.275, 0, g, 16);
+            for (var li = 0; li < 16; li++) {
+                var leaf = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6),
+                    std(li % 3 === 0 ? 0x3f7a37 : 0x53944a, .85));
+                var a = Math.random() * Math.PI * 2;
+                var rr = 0.06 + Math.random() * 0.16;
+                leaf.position.set(Math.cos(a) * rr, 0.34 + Math.random() * 0.28, Math.sin(a) * rr);
+                leaf.scale.set(0.8 + Math.random() * 0.5, 0.55, 1.5 + Math.random() * 0.9);
+                leaf.rotation.y = a; leaf.rotation.z = (Math.random() - .5) * 0.8;
+                g.add(leaf);
+            }
+            return g;
+        }
+        var plant1 = planPotLeaves(-3.9, 0, 2.9);
+        var plant2 = planPotLeaves(3.9, 0, -2.9);
+        var plant3 = planPotLeaves(-3.9, 0, -3.0);
+        mark(plant1, '绿萝', '绿萝：全办公室唯一还活着的生物。');
+        mark(plant2, '绿萝', '绿萝：全办公室唯一还活着的生物。');
+        mark(plant3, '绿萝', '绿萝：全办公室唯一还活着的生物。');
+
+        /* ══════════ 饮水机 ══════════ */
+        var water = grp(-RW / 2 + 0.3, 0, 2.3);
+        box(0.34, 0.98, 0.34, std(0xf0f0ec, .6), 0, 0.49, 0, water);
+        box(0.3, 0.02, 0.06, std(0xcfcfcf, .5, .4), 0, 0.72, 0.16, water);
+        box(0.06, 0.1, 0.06, std(0x5b8fc9, .5), -0.06, 0.66, 0.16, water);
+        box(0.06, 0.1, 0.06, std(0xc95b5b, .5), 0.06, 0.66, 0.16, water);
+        var bottle = cyl(0.15, 0.12, 0.42, new THREE.MeshStandardMaterial({
+            color: 0xbfe3f2, transparent: true, opacity: .55, roughness: .15
+        }), 0, 1.2, 0, water, 18);
+        cyl(0.06, 0.06, 0.08, std(0xdfe9ee, .4), 0, 0.96, 0, water, 12);
+        water.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+        mark(water, '饮水机', '饮水机：水桶空了三天，没人换。');
+
+        /* ══════════ 垃圾桶 ══════════ */
+        var bin = grp(1.15, 0, -0.15);
+        cyl(0.17, 0.13, 0.34, std(0x4a5259, .7), 0, 0.17, 0, bin, 18);
+        cyl(0.175, 0.175, 0.02, std(0x3a4046, .7), 0, 0.34, 0, bin, 18);
+        mark(bin, '垃圾桶', '垃圾桶：红笔芯与废卷子的归宿，也是你检讨书第一版的归宿。');
+
+        /* ══════════════════════════════════════════════════════
+           潜入新增物件
+           ══════════════════════════════════════════════════════ */
+        var szw = RD / 2 - 0.1;                       // 南墙墙面（内侧）
+
+        /* ---------- 灯光：开灯即暴露（预留完整被发现机制） ---------- */
+        var lampOnMat = new THREE.MeshBasicMaterial({ color: 0xfff2d8, toneMapped: false });
+        var ceilL1 = new THREE.PointLight(0xf6ead2, 0, 11, 2);
+        ceilL1.position.set(0, RH - 0.25, -1.7); scene.add(ceilL1);
+        var ceilL2 = new THREE.PointLight(0xf6ead2, 0, 11, 2);
+        ceilL2.position.set(0, RH - 0.25, 1.5); scene.add(ceilL2);
+
+        function setLight(on) {
+            S.light = on;
+            [lamp1, lamp2].forEach(function (g) {
+                g.traverse(function (o) {
+                    if (!o.isMesh || o.material === lampOnMat) return;
+                    if (on) { if (!o.userData.mat0) o.userData.mat0 = o.material; o.material = lampOnMat; }
+                    else if (o.userData.mat0) o.material = o.userData.mat0;
+                });
+            });
+            ceilL1.intensity = ceilL2.intensity = on ? 1.5 : 0;
+            applyLight();
+        }
+        // 预留：开灯后由外部系统接管「被发现」的完整流程
+        var exposeHook = function (level) { /* TODO: 完整的被发现机制在此接入 */ };
+
+        // 门旁的电灯开关
+        var swG = grp(1.78, 1.28, szw, Math.PI);
+        box(0.115, 0.175, 0.025, MAT.white, 0, 0, 0, swG);
+        var swKey = box(0.05, 0.095, 0.03, MAT.grey, 0, 0.02, 0.022, swG);
+        mark(swG, '电灯开关', '电灯开关：开灯等于告诉整层楼「我在这里」。');
+        swG.userData.pick = 'switch';
+        swG.userData.onAct = function () {
+            if (S.light) {
+                setLight(false); swKey.position.y = 0.02;
+                toast('灯灭了。屋子重新沉回黑暗里。');
+                return;
+            }
+            setLight(true); swKey.position.y = -0.02;
+            exposeHook(1);
+            noise(0.85, '啪——灯亮了。整层楼都看得见这道门缝。');
+        };
+        PROPS.push(swG);
+
+        /* ---------- 全楼层监控屏 ---------- */
+        var pcTex = CT(512, 320, function (g, w, h) {           // 被防火墙拦下的那一页
+            g.fillStyle = '#101720'; g.fillRect(0, 0, w, h);
+            g.fillStyle = '#1b2430'; g.fillRect(0, 0, w, 30);
+            g.fillStyle = '#5c6b7c'; g.font = '14px "Microsoft YaHei", sans-serif';
+            g.fillText('https://www.???.edu.cn/…/recruit/2026', 12, 20);
+            g.strokeStyle = '#243040'; g.lineWidth = 1;
+            for (var i = 0; i < 8; i++) { g.beginPath(); g.moveTo(0, 40 + i * 34); g.lineTo(w, 40 + i * 34); g.stroke(); }
+            g.textAlign = 'center';
+            g.fillStyle = '#c0392b'; g.font = 'bold 30px "Microsoft YaHei", sans-serif';
+            g.fillText('访问已被拦截', w / 2, 120);
+            g.fillStyle = '#7d8b9a'; g.font = '16px "Microsoft YaHei", sans-serif';
+            g.fillText('根据《校园网络信息安全管理办法》', w / 2, 158);
+            g.fillText('该页面已被 校信息委员 防火墙阻断', w / 2, 184);
+            g.strokeStyle = 'rgba(176,32,32,.75)'; g.lineWidth = 3;
+            g.strokeRect(w / 2 - 118, 210, 236, 62);
+            g.fillStyle = 'rgba(200,70,60,.9)'; g.font = 'bold 22px "Microsoft YaHei", sans-serif';
+            g.fillText('已记录访问设备', w / 2, 250);
+            g.textAlign = 'left';
+        });
+
+        var cctvG = grp(0.15, 2.08, szw, Math.PI);
+        box(0.62, 0.4, 0.05, MAT.dark, 0, 0, 0, cctvG);
+        plane(0.56, 0.34, new THREE.MeshBasicMaterial({ color: 0x1d4a5f, toneMapped: false }), 0, 0, 0.03, cctvG);
+        box(0.1, 0.03, 0.03, std(0x3a424c, .6), 0, -0.22, 0.03, cctvG);
+        var cctvGlow = new THREE.PointLight(0x5f93c4, 0.55, 3.2, 2);   // 屏幕那一点点光
+        cctvGlow.position.set(0, -0.04, 0.3);
+        cctvG.add(cctvGlow);
+        mark(cctvG, '监控屏', '监控屏：全楼七层，每一层都有人在拖地。');
+        cctvG.userData.pick = 'cctv';
+        cctvG.userData.onAct = function () {
+            var nf = nannyFloor(), h = '<div class="moni">';
+            for (var f = 1; f <= 7; f++) {
+                var on = Math.abs(nf - f) < 0.5;
+                h += '<div class="fl' + (on ? ' here' : '') + '"><span class="n">' + f + 'F</span>' +
+                    '<span class="track">' + (on ? '<i style="left:' + Math.round(((nf - f) + 0.5) * 100) + '%"></i>' : '') + '</span>' +
+                    '<span class="tag">' + (f === 7 ? '办公室' : (on ? '保姆' : '')) + '</span></div>';
+            }
+            h += '</div><div class="doc" style="margin-top:14px">保姆从 1F 开始，一层一层往上扫。<br>' +
+                '现在是 <b>' + nf.toFixed(1) + 'F</b>，还有 <b>' + fmt(SAFE_T - S.t) + '</b> 到七楼。<br>' +
+                '十分钟内这层楼是空的；十分钟之后，任何动静都可能把她引上来。</div>';
+            panelShow('全楼层监控', '1F — 7F · 实时', h, '关掉屏幕（Esc）');
+            noise(0.04, null, true);
+        };
+        PROPS.push(cctvG);
+
+        /* ---------- 左侧：办公电脑 ---------- */
+        var pcG = grp(-4.02, 0, -0.5);
+        box(0.62, 0.05, 0.92, MAT.woodTop, 0.06, 0.75, 0, pcG);
+        [[-0.24, -0.4], [0.36, -0.4], [-0.24, 0.4], [0.36, 0.4]].forEach(function (p) {
+            box(0.05, 0.73, 0.05, MAT.woodDark, p[0] + 0.06, 0.365, p[1], pcG);
+        });
+        box(0.05, 0.37, 0.6, MAT.dark, -0.06, 0.98, 0, pcG);              // 显示器（侧对房间）
+        plane(0.52, 0.32, new THREE.MeshBasicMaterial({ map: pcTex, toneMapped: false }), 0.0, 0.98, 0, pcG).rotation.y = Math.PI / 2;
+        box(0.05, 0.16, 0.16, MAT.dark, -0.06, 0.78, 0, pcG);
+        box(0.14, 0.02, 0.4, MAT.dark, 0.34, 0.78, 0, pcG);                // 键盘
+        var pcGlow = new THREE.PointLight(0x6ea6d8, 0.22, 2.4, 2);
+        pcGlow.position.set(0.1, 0.98, 0); pcG.add(pcGlow);
+        pcG.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+        mark(pcG, '办公电脑', '办公电脑：屏幕还亮着，页面停在一半。');
+        pcG.userData.pick = 'pc';
+        pcG.userData.onAct = function () {
+            panelShow('办公电脑', '浏览器 · 未关闭的标签页',
+                '<div class="browser"><div class="bar"><span class="dot3"></span><span class="dot3"></span>' +
+                '<span class="dot3"></span><span class="url">https://www.???.edu.cn/hr/recruit/2026/…</span></div>' +
+                '<div class="body"><div class="big">访问已被拦截</div>' +
+                '<div class="msg">根据《校园网络信息安全管理办法》第 11 条，<br>' +
+                '本页面已被 <b>校信息委员</b> 防火墙阻断。<br><br>' +
+                '本次访问的 <b>设备编号</b>、<b>校园网账号</b> 与 <b>时间</b> 已记录。<br>' +
+                '如需申诉，请联系信息中心（工作日 9:00—16:30）。</div>' +
+                '<div class="stamp">已记录访问设备</div></div></div>' +
+                '<div class="doc" style="margin-top:14px">页面标题只剩半截：……招聘 · 2026。<br>' +
+                '再往下翻需要密码，而密码不在这台电脑上。</div>', '离开屏幕（Esc）');
+            noise(0.05, null, true);
+        };
+        PROPS.push(pcG);
+
+        /* ---------- 桌面：带铃铛的机密文件夹 ---------- */
+        var folderG = grp(-0.55, 0.782, -0.4, 0.22);
+        box(0.30, 0.012, 0.22, std(0xb9873f, .8), 0, 0.006, 0, folderG);            // 下层
+        var folderLid = box(0.30, 0.014, 0.22, std(0xc79347, .78), 0, 0.024, 0, folderG);
+        box(0.09, 0.02, 0.06, MAT.metal, 0.09, 0.026, 0.09, folderG);                // 密码锁
+        box(0.28, 0.008, 0.2, MAT.paper, 0, 0.014, 0.005, folderG);                  // 里面的文件
+        // 锁旁那张纸条
+        var codeNote = plane(0.1, 0.07, new THREE.MeshStandardMaterial({
+            map: noteTex('时间会给\n出答案'), roughness: .95
+        }), -0.09, 0.784, -0.3);
+        codeNote.rotation.x = -Math.PI / 2; codeNote.rotation.z = 0.3;
+        codeNote.userData.pick = 'note';
+        codeNote.userData.tip = '纸条：万物事理，时间会给出答案。';
+        codeNote.userData.onAct = function () {
+            panelShow('锁旁的纸条', '便签纸 · 打印体',
+                '<div class="doc red">万物事理，时间会给出答案。</div>' +
+                '<div class="doc">纸条只有这一行，没有别的字。<br>' +
+                '背面是空的，连个数字都没写。</div>', '放下（Esc）');
+        };
+        PROPS.push(codeNote);
+        // 顶上的铜铃铛
+        var bellG = grp(-0.55, 0.80, -0.4);
+        var bellMat = std(0xc9a24a, .3, .85);
+        var bellBody = new THREE.Mesh(new THREE.SphereGeometry(0.037, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), bellMat);
+        bellBody.position.y = 0.037; bellBody.rotation.x = Math.PI; bellG.add(bellBody);
+        cyl(0.012, 0.012, 0.012, bellMat, 0, 0.076, 0, bellG, 10);
+        cyl(0.0035, 0.0035, 0.05, std(0x6b5a3a, .9), 0, 0.024, 0, bellG, 6);         // 系绳
+        bellG.userData.pick = 'bell';
+        bellG.userData.tip = '铜铃铛：系在文件夹顶上，一碰就响。';
+        bellG.userData.onAct = function () {
+            if (S.bellOff) { toast('铃铛已经在你口袋里了。'); return; }
+            S.bellOff = true;
+            bellG.visible = false;
+            bagAdd('铜铃铛');
+            toast('你捏住铃舌，把铃铛从绳结上褪了下来。');
+            noise(0.06, null, true);
+        };
+        PROPS.push(bellG);
+
+        mark(folderG, '机密文件夹', '机密文件夹：顶上拴着一只铜铃铛，动一下就响。');
+        folderG.userData.pick = 'folder';
+        folderG.userData.onAct = function () {
+            if (!S.bellOff) {                                   // 没摘铃铛就动手 → 铃响 → 直接判负
+                sfxBell();
+                bellShake = 0.9;
+                hallWait = 0.6;                                 // 门外立刻有人经过
+                noise(1, '叮——！铃铛在文件夹上炸开，整层楼都听得见。', true);
+                toast('门外的拖把声停住了。有人站在门口。', true);
+                caught('铃铛还没摘，你就伸手了。');
+                return;
+            }
+            if (S.folderOpen) {
+                recruitDoc();
+                return;
+            }
+            padOpen('四位数字 · 万物事理，时间会给出答案', function (v) {
+                if (v === CODE) {
+                    S.folderOpen = true;
+                    folderLid.rotation.z = -0.5;
+                    sfxClick();
+                    toast('咔哒。锁开了。');
+                    noise(0.08, null, true);
+                    setTimeout(recruitDoc, 780);          // 等键盘收掉再开文件
+                    return true;
+                }
+                sfxClick();
+                noise(0.22, null, true);                  // 密码错了也算一次动静
+                return false;                             // 交给 padEnter 报「密码不对」
+            });
+        };
+        PROPS.push(folderG);
+
+        function recruitDoc() {
+            panelShow('保洁岗位 · 应聘申请书', '机密文件夹 · 第 1 页 · 原件',
+                '<div class="doc">应 聘 申 请 书\n\n' +
+                '尊敬的总务处领导：\n\n' +
+                '我叫周 ××，今年四十三岁，是高二（3）班周雅静的母亲。\n' +
+                '听说学校教学楼要招保洁，我想申请这个岗位。\n\n' +
+                '我在家种过地，也在饭店后厨洗过碗，脏活累活都干得动。\n' +
+                '我不怕吃苦，也不会嫌活儿多。家里现在只剩我一个人挣钱，\n' +
+                '孩子她爸常年吃药，雅静下半年就要交资料费了。\n' +
+                '只要学校肯用我，让我干什么都行。\n\n' +
+                '关于上班时间：白班晚班我都行。学校安排我几点到，\n' +
+                '我就几点到，晚上十点半到岗也没有问题。\n' +
+                '我不会骑自行车太远的路，若能在 3 号楼安排最好。\n\n' +
+                '恳请领导给我一个机会。我一定把活干干净净。\n\n' +
+                '此致\n敬礼\n\n' +
+                '　　　　　　　　　　　　　　申请人：周 ××\n' +
+                '　　　　　　　　　　　　　　联系电话：138××××××××\n' +
+                '　　　　　　　　　　　　　　家庭住址：× 县 × 镇 × 村</div>' +
+                '<div class="doc red">页边，红笔批注（不是她的笔迹）：\n' +
+                '「同意。先顶 3 号楼 5—7 层，22:30 到岗，临时工，按天算。」\n' +
+                '「她女儿的助学金，等这个岗位定下来再议。」</div>' +
+                '<div class="doc">纸的右下角有一小片水渍，字被泡开过又干了。\n' +
+                '落款日期那一栏是空的——申请书交上去的时候，还没人签字。</div>',
+                '收好（Esc）');
+            if (S.bag.indexOf('保洁申请书') < 0) { bagAdd('保洁申请书'); S.clues++; }
+        }
+
+        /* ---------- 书架：一堆废纸里的一只信封 ---------- */
+        var junkTips = [
+            '草稿纸：背面写满了同一道数学题，八遍。',
+            '作业本：封面名字被涂掉了，露出下面的「周」。',
+            '废纸：折成纸飞机，机头撞瘪了。',
+            '练习册：只写了第一页，后面全是空白。',
+            '试卷：59 分。红笔在旁边写了「家长签字」。',
+            '通知单：回执那一栏被撕掉了。',
+            '草稿：一整页只写了两个字——「凭什么」。'
+        ];
+        for (var ji = 0; ji < 18; ji++) {                       // 书架顶上那堆没人要的纸
+            var jz = -0.58 + (ji % 9) * 0.13 + (Math.random() - .5) * 0.04;
+            var jx = 0.02 + (ji < 9 ? -0.06 : 0.09);
+            var jy = 1.902 + Math.floor(ji / 9) * 0.014;
+            var jp = box(0.2, 0.012, 0.15, MAT.paper, jx, jy, jz, shelfG);
+            jp.rotation.y = (Math.random() - .5) * 0.4;
+            jp.userData.pick = 'junk';
+            jp.userData.tip = junkTips[ji % junkTips.length];
+            (function (tip) {
+                jp.userData.onAct = function () { toast(tip); noise(0.03, null, true); };
+            })(jp.userData.tip);
+            PROPS.push(jp);
+        }
+        var envTex = CT(320, 200, function (g, w, h) {
+            g.fillStyle = '#efe6d2'; g.fillRect(0, 0, w, h);
+            g.strokeStyle = '#c9bda2'; g.lineWidth = 2; g.strokeRect(4, 4, w - 8, h - 8);
+            g.fillStyle = '#3a3a3a'; g.font = 'bold 22px "Microsoft YaHei", sans-serif';
+            g.fillText('汇 报 材 料', 22, 44);
+            g.font = '17px "Microsoft YaHei", sans-serif'; g.fillStyle = '#4a4a4a';
+            g.fillText('高二（3）班  周雅静', 22, 78);
+            g.fillStyle = '#8e1c1c'; g.font = 'bold 18px "Microsoft YaHei", sans-serif';
+            g.fillText('已拆封', 22, 112);
+            g.strokeStyle = '#b03a2e'; g.lineWidth = 2;
+            g.beginPath(); g.moveTo(20, 130); g.lineTo(180, 96); g.stroke();     // 被撕开的边
+        });
+        var envMat = new THREE.MeshStandardMaterial({ map: envTex, roughness: .92, side: THREE.DoubleSide });
+        var env = box(0.24, 0.008, 0.17, envMat, 0.02, 1.918, -0.34, shelfG);
+        env.rotation.y = -0.22;
+        env.userData.pick = 'envelope';
+        env.userData.tip = '信封：拆开过，里面是空的。';
+        env.userData.onAct = function () {
+            panelShow('周雅静的汇报信封', '学生作业提交书架 · 第三层',
+                '<div class="doc">牛皮纸信封，收件人一栏写着「秦主任 亲启」。<br><br>' +
+                '· 信封完好，没有撕破的痕迹；<br>' +
+                '· 封口是被人用指甲一点点挑开的，又按了回去；<br>' +
+                '· 里面的信纸 <b>已经被取走</b>，只剩一道压痕；<br>' +
+                '· 信封右下角有一枚指纹，比你的小一圈。</div>' +
+                '<div class="doc red">有人比你先来过，而且只拿走了那一张纸。</div>', '放回书架（Esc）');
+            if (S.bag.indexOf('汇报信封') < 0) { bagAdd('汇报信封'); S.clues++; }
+            noise(0.04, null, true);
+        };
+        PROPS.push(env);
+
+        /* ---------- 右侧柜子：花盆 / 水杯 / 推柜 / 暗门 ---------- */
+        var cab2 = grp(4.12, 0, 0.8);
+        box(0.52, 1.12, 0.92, std(0xa9b0b6, .6, .3), 0, 0.56, 0, cab2);
+        for (var d2 = 0; d2 < 3; d2++) {
+            box(0.02, 0.32, 0.84, std(0xbcc2c7, .5, .3), -0.27, 0.28 + d2 * 0.34, 0, cab2);
+            box(0.03, 0.03, 0.22, MAT.metal, -0.29, 0.28 + d2 * 0.34, 0, cab2);
+        }
+        cab2.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+        mark(cab2, '铁皮柜', '铁皮柜：柜顶压着花盆和水杯，推不动。');
+        cab2.userData.pick = 'cabinet';
+        cab2.userData.drag = 'cabinet';
+        cab2.userData.home = new THREE.Vector3(4.12, 0, 0.8);
+        cab2.userData.onAct = function () {
+            if (!S.potOff || !S.cupOff) { toast('柜顶的花盆和水杯压着，推不动。先把它们挪开。'); return; }
+            if (S.cabMoved) { toast('柜子已经挪不动了。'); return; }
+            toast('柜子很沉：按住鼠标左键，慢慢拖。');
+        };
+        PROPS.push(cab2);
+
+        // 柜顶花盆（可拖动）
+        function makePot(x, z) {
+            var g = grp(x, 1.12, z);
+            cyl(0.11, 0.085, 0.16, std(0xb5623c, .85), 0, 0.08, 0, g, 16);
+            cyl(0.115, 0.115, 0.02, std(0x8a4630, .85), 0, 0.165, 0, g, 16);
+            for (var li = 0; li < 9; li++) {
+                var lf = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), std(li % 3 ? 0x53944a : 0x3f7a37, .85));
+                var a = Math.random() * Math.PI * 2, rr = 0.03 + Math.random() * 0.09;
+                lf.position.set(Math.cos(a) * rr, 0.21 + Math.random() * 0.13, Math.sin(a) * rr);
+                lf.scale.set(0.9, 0.5, 1.3); g.add(lf);
+            }
+            g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+            return g;
+        }
+        var pot2 = makePot(4.12, 0.62);
+        mark(pot2, '花盆', '花盆：土是干的，盆底压着什么。');
+        pot2.userData.pick = 'pot';
+        pot2.userData.drag = 'item';
+        pot2.userData.restY = 0;
+        pot2.userData.home = new THREE.Vector3(4.12, 1.12, 0.62);
+        pot2.userData.onAct = function () {
+            if (!S.potOff) toast('花盆：按住左键，把它挪开。');
+            else if (!S.hasKey) toast('花盆挪开的地方，露出一把钥匙。');
+            else toast('花盆：底下什么都没有了。');
+        };
+        PROPS.push(pot2);
+
+        var cup2 = grp(4.12, 1.12, 1.0);
+        cyl(0.045, 0.04, 0.11, MAT.cup, 0, 0.055, 0, cup2, 18);
+        cyl(0.042, 0.042, 0.01, std(0x6b4a2f, .9), 0, 0.108, 0, cup2, 18);
+        mark(cup2, '水杯', '水杯：半杯隔夜茶，晃一下就洒。');
+        cup2.userData.pick = 'cup';
+        cup2.userData.drag = 'item';
+        cup2.userData.restY = 0;
+        cup2.userData.home = new THREE.Vector3(4.12, 1.12, 1.0);
+        cup2.userData.onAct = function () { toast(S.cupOff ? '水杯：已经挪开了。' : '水杯：按住左键，把它挪开。'); };
+        PROPS.push(cup2);
+
+        // 花盆底下的投诉箱钥匙
+        var keyG = grp(4.12, 1.115, 0.62);
+        box(0.055, 0.004, 0.022, MAT.metal, 0, 0.002, 0, keyG);
+        box(0.014, 0.004, 0.014, MAT.metal, 0.026, 0.002, 0, keyG);
+        box(0.006, 0.004, 0.03, MAT.metal, -0.026, 0.002, 0.006, keyG);
+        keyG.visible = false;
+        keyG.userData.pick = 'key';
+        keyG.userData.tip = '钥匙：投诉箱的小钥匙。';
+        keyG.userData.onAct = function () {
+            S.hasKey = true; keyG.visible = false;
+            bagAdd('投诉箱钥匙');
+            toast('钥匙到手。投诉箱可以开了。');
+            noise(0.05, null, true);
+        };
+        PROPS.push(keyG);
+
+        // 柜子后面的暗门（推柜后才露出来）：刚好能被柜子完全挡住，纯视觉，不提示、不可点
+        var secretDoor = grp(4.42, 0.4, 0.8);
+        box(0.05, 0.75, 0.41, std(0x6a6f74, .8, .2), 0, 0, 0, secretDoor);
+        box(0.02, 0.66, 0.32, std(0x2b2f33, .9), -0.035, 0, 0, secretDoor);
+        box(0.03, 0.03, 0.12, MAT.metal, -0.06, 0.2, 0.1, secretDoor);
+        secretDoor.visible = false;
+
+        /* ---------- 墙角工具箱 → 螺丝刀 + 手电筒 ---------- */
+        // 注意：箱子必须做成「空的」——原来的实心盒子会把里面的东西埋住，既看不见也点不到
+        var toolG = grp(3.95, 0, 3.02, -0.4);
+        var toolMat = std(0x3f6b3f, .7);
+        box(0.42, 0.02, 0.26, toolMat, 0, 0.01, 0, toolG);                 // 箱底
+        box(0.42, 0.18, 0.02, toolMat, 0, 0.11, 0.12, toolG);              // 四面箱壁
+        box(0.42, 0.18, 0.02, toolMat, 0, 0.11, -0.12, toolG);
+        box(0.02, 0.18, 0.22, toolMat, 0.2, 0.11, 0, toolG);
+        box(0.02, 0.18, 0.22, toolMat, -0.2, 0.11, 0, toolG);
+        var toolLid = box(0.42, 0.06, 0.26, std(0x355c35, .7), 0, 0.225, -0.13, toolG);
+        box(0.44, 0.03, 0.05, MAT.dark, 0, 0.205, 0.12, toolG);             // 锁扣
+        cyl(0.012, 0.012, 0.22, MAT.metal, 0, 0.23, 0, toolG, 8).rotation.z = Math.PI / 2;   // 提手
+        var sdG = new THREE.Group(); sdG.position.set(0, 0.05, -0.05); toolG.add(sdG);
+        var sdMat = std(0xa8b0b8, .35, .8);
+        cyl(0.011, 0.011, 0.11, std(0xb03a2e, .7), 0, 0, 0, sdG, 10).rotation.z = Math.PI / 2;
+        cyl(0.006, 0.006, 0.14, sdMat, 0.09, 0, 0, sdG, 8).rotation.z = Math.PI / 2;
+        box(0.006, 0.012, 0.03, sdMat, 0.17, 0, 0, sdG);
+        sdG.visible = false;
+        // 箱子里那把旧手电筒：打开工具箱才看得见
+        var torchG = new THREE.Group();
+        torchG.position.set(-0.02, 0.055, 0.05);
+        torchG.rotation.set(0, 0.45, Math.PI / 2);
+        toolG.add(torchG);
+        cyl(0.023, 0.026, 0.15, std(0x59616b, .5, .7), 0, 0, 0, torchG, 14);         // 筒身
+        cyl(0.03, 0.03, 0.032, std(0x8d959e, .35, .8), 0, 0.09, 0, torchG, 14);      // 灯头
+        cyl(0.026, 0.026, 0.004, std(0xcfc8ae, .4, .2), 0, 0.107, 0, torchG, 14);    // 镜片
+        box(0.012, 0.009, 0.022, MAT.dark, 0, 0.02, 0.028, torchG);                  // 推钮
+        torchG.visible = false;
+        toolG.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+        // 东西太小，给它们各加一块看不见的点击区
+        var hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+        box(0.22, 0.1, 0.13, hitMat, 0, 0, 0, sdG);
+        box(0.18, 0.11, 0.13, hitMat, 0, 0, 0, torchG);
+        mark(toolG, '工具箱', '工具箱：锁扣已经锈了，一掰就开——声音不小。');
+        toolG.userData.pick = 'toolbox';
+        toolG.userData.onAct = function () {
+            if (S.toolbox) {
+                if (!S.hasSD) toast('工具箱：螺丝刀在里面——点它，拿走。');
+                else if (!S.torch) toast('工具箱：还有一把手电筒——点它，拿走。');
+                else toast('工具箱：空的，只剩一股机油味。');
+                return;
+            }
+            S.toolbox = true;
+            toolLid.rotation.x = -1.1;
+            sdG.visible = true;
+            torchG.visible = true;
+            noise(0.24, '咔——工具箱的锁扣弹开，在夜里响得吓人。', true);
+            toast('一把螺丝刀，还有一把旧手电筒。');
+        };
+        PROPS.push(toolG);
+
+        // 螺丝刀：点了直接进包
+        sdG.userData.pick = 'sd';
+        sdG.userData.tip = '螺丝刀：十字，柄上缠着胶布。';
+        sdG.userData.onAct = function () {
+            if (S.hasSD) { toast('螺丝刀已经在手里了。'); return; }
+            S.hasSD = true;
+            sdG.visible = false;
+            bagAdd('螺丝刀');
+            noise(0.06, null, true);
+            toast('螺丝刀：十字，柄上缠着胶布。');
+        };
+        PROPS.push(sdG);
+
+        // 手电筒：拿到才有光
+        torchG.userData.pick = 'torch';
+        torchG.userData.tip = '手电筒：旧货，电池只剩一点。';
+        torchG.userData.onAct = function () {
+            if (S.torch) { toast('手电筒已经在手里了。'); return; }
+            S.torch = true; S.torchOn = true;
+            torchG.visible = false;
+            bagAdd('手电筒');
+            applyLight();
+            noise(0.06, null, true);
+            toast('手电筒拧亮了。按 F 开关。光很弱，只够照出眼前一小片。');
+        };
+        PROPS.push(torchG);
+
+        /* ---------- 通风管道盖板（螺丝刀第一处用途） ---------- */
+        var ventG = grp(RW / 2 - 0.12, 2.42, -1.6);            // 东墙上，板面朝 -X（房间内侧）
+        box(0.04, 0.5, 0.5, std(0x9aa0a6, .6, .4), 0, 0, 0, ventG);
+        box(0.03, 0.44, 0.44, std(0x6f757b, .7, .3), -0.02, 0, 0, ventG);
+        [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]].forEach(function (p) {
+            cyl(0.011, 0.011, 0.012, MAT.metal, -0.03, p[0], p[1], ventG, 8).rotation.z = Math.PI / 2;
+        });
+        var ventCover = box(0.03, 0.44, 0.44, std(0x8d939a, .6, .4), -0.05, 0, 0, ventG);
+        var ventInner = box(0.02, 0.38, 0.38, std(0x4a5057, .9, .5), -0.012, 0, 0, ventG);
+        for (var vi = 0; vi < 4; vi++) {                       // 里面那层：焊死的加固
+            box(0.02, 0.03, 0.38, std(0x5b6167, .8, .5), -0.024, -0.15 + vi * 0.1, 0, ventG);
+        }
+        ventInner.visible = false;
+        mark(ventG, '通风口', '通风口：四角螺丝拧得死死的。');
+        ventG.userData.pick = 'vent';
+        ventG.userData.onAct = function () {
+            if (!S.hasSD) { toast('通风口：四角是十字螺丝，指甲拧不动——得有螺丝刀。'); return; }
+            if (S.vent === 0) {
+                S.vent = 1;
+                ventCover.visible = false;
+                ventInner.visible = true;
+                noise(0.34, '螺丝一颗一颗退出来，最后一颗掉在地上——当啷。', true);
+                toast('里面还有一层：钢板焊死的加固，螺丝刀拧不动。');
+                return;
+            }
+            toast('第二层是电焊封死的。这条路断了。');
+        };
+        PROPS.push(ventG);
+
+        /* ---------- 违规物品没收杂项栏 + 底部暗格 ---------- */
+        var junkNames = [
+            '手机 ×6（开机需录入校园网账号）', '充电宝 ×3（贴着班级姓名）', '蓝牙耳机 ×4（已被登记 MAC）',
+            '智能手表 ×2（定位权限：校方强制开启）', '游戏机 ×1（已刷入监控固件）', '平板 ×1（MDM 已绑定）',
+            '相机 ×1（存储卡被格式化）', '电子词典 ×3（联网日志已导出）', '数据线一捆（贴着「归还须签字」）'
+        ];
+        var rackG = grp(-3.2, 0, 3.08);
+        box(0.72, 1.0, 0.42, std(0xc3c8cc, .6, .25), 0, 0.5, 0, rackG);
+        for (var ri = 0; ri < 3; ri++) {
+            box(0.68, 0.03, 0.4, std(0xd4d8db, .5, .3), 0, 0.18 + ri * 0.32, 0, rackG);
+            for (var rj = 0; rj < 4; rj++) {                 // 格子里的违规杂物
+                var it = box(0.1 + Math.random() * 0.06, 0.02 + Math.random() * 0.03, 0.07 + Math.random() * 0.04,
+                    (rj % 2 ? MAT.dark : MAT.grey), -0.24 + rj * 0.16, 0.2 + ri * 0.32 + 0.03, (Math.random() - .5) * 0.1, rackG);
+                it.rotation.y = (Math.random() - .5) * 0.6;
+            }
+        }
+        rackG.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+        mark(rackG, '没收物品栏', '没收物品栏：一整栏都是学生的「违禁品」。');
+        rackG.userData.pick = 'rack';
+        rackG.userData.onAct = function () {
+            var h = '<div class="doc">';
+            for (var i = 0; i < junkNames.length; i++) h += '· ' + junkNames[i] + '\n';
+            h += '</div><div class="doc red">每一台都贴着编号，连着校园网。<br>' +
+                '只要开机，校方就知道它在谁手里、在几楼、在干什么。</div>' +
+                '<div class="doc">栏子底下那块板，颜色和别处不一样。</div>';
+            panelShow('违规物品没收栏', '总务处 · 没收登记', h, '关上（Esc）');
+            noise(0.06, null, true);
+        };
+        PROPS.push(rackG);
+
+        var lockG = grp(-3.2, 0.09, 3.29);
+        box(0.66, 0.14, 0.02, std(0x8a6a4a, .85), 0, 0, 0, lockG);
+        box(0.06, 0.035, 0.03, MAT.metal, 0, 0, 0.02, lockG);
+        lockG.userData.pick = 'hidden';
+        lockG.userData.tip = '暗格：锁着。';
+        function hiddenDoc() {
+            panelShow('暗格', '没收栏 · 底部',
+                '<div class="doc">撬开了。<br>' +
+                '木板内侧有一道浅浅的划痕，像是被人反复取放什么东西磨出来的。<br>' +
+                '夹层最里面，塞着一张照片。</div>' +
+                '<figure class="photo"><img src="img/freezer.png" alt="后厨冷冻柜">' +
+                '<figcaption>备注：摄影社社长</figcaption></figure>' +
+                '<div class="doc red">冷冻柜的盖子开着。<br>里面有一只人的手，五指贴着柜壁。</div>' +
+                '<div class="doc">照片背面用铅笔写着四个字的备注：摄影社社长。<br>' +
+                '没有日期，没有署名，边角有折过的痕。</div>', '收好（Esc）');
+            if (S.bag.indexOf('后厨照片') < 0) { bagAdd('后厨照片'); S.clues++; }
+        }
+        lockG.userData.onAct = function () {
+            if (!S.hasSD) { toast('暗格：锁着。指甲抠不开，得有能撬的东西。'); return; }
+            if (S.hidden) { hiddenDoc(); return; }
+            S.hidden = true;
+            lockG.rotation.x = -1.0;
+            noise(0.45, '螺丝刀卡进缝里，木头裂开的声音在屋里炸开。', true);
+            hiddenDoc();
+        };
+        PROPS.push(lockG);
+
+        /* ---------- 学生投诉箱 ---------- */
+        var compG = grp(0.62, 1.26, szw, Math.PI);
+        box(0.34, 0.44, 0.26, std(0x8f6a48, .8), 0, 0, 0.03, compG);
+        box(0.36, 0.06, 0.28, std(0x7a5838, .8), 0, 0.24, 0.03, compG);
+        box(0.24, 0.03, 0.03, std(0x3a2c1c, .9), 0, 0.19, 0.17, compG);       // 投递口
+        box(0.05, 0.03, 0.03, MAT.metal, 0, -0.14, 0.17, compG);              // 锁
+        for (var ci2 = 0; ci2 < 7; ci2++) {                                    // 塞不下的信
+            var lt = box(0.02, 0.09, 0.13, MAT.paper, -0.1 + ci2 * 0.03, 0.28 + Math.random() * 0.03, 0.17, compG);
+            lt.rotation.x = -0.4 - Math.random() * 0.3;
+        }
+        mark(compG, '投诉箱', '投诉箱：塞得满满当当，锁着。');
+        compG.userData.pick = 'complaint';
+        compG.userData.onAct = function () {
+            if (!S.hasKey) { toast('投诉箱：锁着。钥匙不在锁孔里。'); noise(0.05, null, true); return; }
+            if (!S.complaint) {
+                S.complaint = true;
+                noise(0.16, '锁芯转了一下，箱盖弹开。', true);
+                S.clues++; bagAdd('一叠投诉信');
+            }
+            panelShow('学生投诉箱', '匿名 · 塞满了',
+                '<div class="doc">· 晚自习到 22:40，食堂只剩冷馒头。\n' +
+                '· 三楼女厕的灯坏了两个月。\n' +
+                '· 手机被收走后，老师用自己的账号登了我的校园网。\n' +
+                '· 助学金名单公示了三天，又撤了。\n' +
+                '· 有人看见保洁阿姨在办公室待到很晚。\n' +
+                '· （字迹潦草）别查了，查不到的。</div>' +
+                '<div class="doc red">最后一张没有署名，纸角是湿的。</div>', '盖回去（Esc）');
+        };
+        PROPS.push(compG);
+
+        /* ---------- 桌面发条小玩具 ---------- */
+        var toyG = grp(2.45, 0.75, 1.35);
+        cyl(0.05, 0.055, 0.09, std(0xb03a2e, .6), 0, 0.045, 0, toyG, 14);
+        var toyHead = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 10), std(0xf0e2c8, .7));
+        toyHead.position.y = 0.115; toyG.add(toyHead);
+        var toyKey = cyl(0.018, 0.018, 0.012, MAT.metal, 0, 0.09, 0.06, toyG, 10);
+        toyKey.rotation.x = Math.PI / 2;
+        box(0.012, 0.012, 0.05, MAT.metal, 0, 0.09, 0.03, toyG);
+        toyG.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+        mark(toyG, '发条玩具', '发条玩具：每两分钟得拧一次，不然它会替你叫。');
+        toyG.userData.pick = 'toy';
+        toyG.userData.hold = 'wind';
+        toyG.userData.onAct = function () {
+            toast('发条玩具：点一下左键看还剩多少，按住不动给它上弦。');
+        };
+        PROPS.push(toyG);
+
+        /* ══════════ 灯光：灯全关着，只剩月光、手机和走廊 ══════════ */
+        // 1) 极弱环境光：只够勉强分辨轮廓
+        var hemi = new THREE.HemisphereLight(0x24344f, 0x06080a, 0.15);
+        scene.add(hemi);
+
+        // 2) 月光：冷蓝，从窗外斜射进来，在地上切出窗格
+        var moon = new THREE.DirectionalLight(0x9dbde8, 0.5);
+        moon.position.set(-4.4, 6.5, -9);
+        moon.target.position.set(1.2, 0, 1.8);
+        moon.castShadow = true;
+        moon.shadow.mapSize.set(2048, 2048);
+        moon.shadow.camera.left = -8;
+        moon.shadow.camera.right = 8;
+        moon.shadow.camera.top = 8;
+        moon.shadow.camera.bottom = -8;
+        moon.shadow.camera.near = 0.5;
+        moon.shadow.camera.far = 30;
+        moon.shadow.bias = -0.0006;
+        moon.shadow.normalBias = 0.02;
+        scene.add(moon);
+        scene.add(moon.target);
+
+        // 3) 手电筒：本来没有，得在墙角工具箱里翻出来才亮（电池只剩一点）
+        var torch = new THREE.SpotLight(0xcadcff, 3.6, 12, 0.62, 0.78, 1.6);
+        torch.castShadow = true;
+        torch.shadow.mapSize.set(1024, 1024);
+        torch.shadow.camera.near = 0.15;
+        torch.shadow.camera.far = 12;
+        torch.shadow.bias = -0.0012;
+        torch.position.set(0.14, -0.14, -0.05);
+        torch.target.position.set(0, -0.02, -1);
+        torch.visible = false;                    // 拿到手电筒之前，一点光都没有
+        camera.add(torch);
+        camera.add(torch.target);
+        scene.add(camera);
+
+        // 拿到手电筒之前，靠月光和走廊的余光勉强摸黑
+        function applyLight() {
+            var lit = !!S.torch && !!S.torchOn;
+            torch.visible = lit;
+            hemi.intensity = S.light ? 0.8 : (lit ? 0.15 : 0.34);
+            moon.intensity = S.light ? 0.18 : (lit ? 0.5 : 0.72);
+        }
+        applyLight();
+
+        // 4) 门缝里漏进来的走廊灯（唯一的暖色）
+        var doorGlow = new THREE.PointLight(0xffab5c, 0.9, 5, 2);
+        doorGlow.position.set(2.6, 0.16, 3.3);
+        scene.add(doorGlow);
+        // 地上那道门缝光斑
+        var doorStrip = plane(1.0, 0.75, new THREE.MeshBasicMaterial({
+            color: 0xffb268, transparent: true, opacity: .16, fog: false, toneMapped: false
+        }), 2.6, 0.012, 3.05);
+        doorStrip.rotation.x = -Math.PI / 2;
+        // 有人经过时用来压暗光斑的黑块
+        var doorBlock = plane(0.34, 0.75, new THREE.MeshBasicMaterial({
+            color: 0x000000, transparent: true, opacity: 0, fog: false
+        }), 2.6, 0.016, 3.05);
+        doorBlock.rotation.x = -Math.PI / 2;
+
+        /* ══════════ 视角控制（位置固定） ══════════ */
+        var yaw = 0, pitch = -0.04;
+        var tYaw = yaw, tPitch = pitch;
+        var PITCH_MAX = Math.PI / 2 - 0.06;
+        var dragging = false, lastX = 0, lastY = 0;
+        var downX = 0, downY = 0, downT = 0, downBtn = -1;
+        var SENS = 0.0026;
+
+        function applyLook() {
+            camera.rotation.y = yaw;
+            camera.rotation.x = pitch;
+        }
+        applyLook();
+
+        canvas.addEventListener('mousedown', function (e) {
+            downBtn = e.button;
+            if (S.over) return;
+            if (document.pointerLockElement === canvas) return;
+            downX = e.clientX; downY = e.clientY; downT = Date.now();
+            if (e.button === 0) {
+                var o = pickAt(toNDC(e));
+                if (o && o.userData.hold === 'wind' && distTo(o) <= REACH) {   // 点一下看进度，按住就上弦
+                    holdBegin(windLabel(), function (dt) {
+                        S.wind = Math.min(WIND_MAX, S.wind + dt * 46);
+                        if (Math.random() < 0.2) tone(300 + Math.random() * 160, 0.035, 'square', 0.018);
+                    });
+                    return;
+                }
+                if (o && o.userData.drag && distTo(o) <= REACH + 0.35) { dragBegin(o, e); return; }
+            }
+            dragging = true; lastX = e.clientX; lastY = e.clientY;
+            canvas.classList.add('dragging');
+        });
+        window.addEventListener('mouseup', function (e) {
+            var btn = downBtn; downBtn = -1;
+            if (drag) dragStop();
+            if (holdOn) holdEnd();
+            dragging = false; canvas.classList.remove('dragging');
+            // 右键只用来转视角，不再走位（走位交给 WASD）
+        });
+        canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+        window.addEventListener('mousemove', function (e) {
+            if (drag) { dragMove(e); return; }
+            if (document.pointerLockElement === canvas) {
+                tYaw -= e.movementX * SENS * 0.85;
+                tPitch -= e.movementY * SENS * 0.85;
+                tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
+            } else if (dragging) {
+                tYaw -= (e.clientX - lastX) * SENS;
+                tPitch -= (e.clientY - lastY) * SENS;
+                tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
+                lastX = e.clientX; lastY = e.clientY;
+            } else if (!held && Date.now() - lastHover > 110) {
+                // 悬停在能拿起来的东西上，光标变成手型
+                lastHover = Date.now();
+                canvas.style.cursor = pickAt(toNDC(e)) ? 'pointer' : '';
+            }
+        });
+
+        // 滚轮 = 摄像机变焦（只改目标焦距，实际焦距在每帧里平滑推过去）
+        var FOV_MIN = 28, FOV_MAX = 90, fovT = camera.fov;
+        window.addEventListener('wheel', function (e) {
+            fovT = Math.max(FOV_MIN, Math.min(FOV_MAX, fovT + (e.deltaY > 0 ? 3.4 : -3.4)));
+            e.preventDefault();
+        }, { passive: false });
+
+        // 触摸
+        var tLast = null, tStart = null;
+        canvas.addEventListener('touchstart', function (e) {
+            tLast = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            tStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, { passive: true });
+        canvas.addEventListener('touchmove', function (e) {
+            if (!tLast) return;
+            var t = e.touches[0];
+            tYaw -= (t.clientX - tLast.x) * 0.005;
+            tPitch -= (t.clientY - tLast.y) * 0.005;
+            tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
+            tLast = { x: t.clientX, y: t.clientY };
+            e.preventDefault();
+        }, { passive: false });
+        canvas.addEventListener('touchend', function (e) {
+            var t = e.changedTouches && e.changedTouches[0];
+            if (t && tStart && Math.abs(t.clientX - tStart.x) + Math.abs(t.clientY - tStart.y) < 14) {
+                // 手指没有右键：能拿东西就拿，拿不到就当走过去
+                if (!actAt({ clientX: t.clientX, clientY: t.clientY })) {
+                    moveAt({ clientX: t.clientX, clientY: t.clientY });
+                }
+            }
+            tLast = null; tStart = null;
+        });
+
+        /* ══════════ 可以拿到眼前细看的东西 ══════════ */
+        var pickRay = new THREE.Raycaster();
+        var pickables = allDrawers.concat(PROPS);
+        var held = null, holdT = 0, holdDir = 0, heldHome = null;
+        var holdFrom = new THREE.Vector3(), holdFromQ = new THREE.Quaternion();
+        var holdTo = new THREE.Vector3(0, -0.012, -0.33);
+        var holdToQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.16, 0, 0.04));
+        var ndc = new THREE.Vector2();
+        var lastHover = 0;
+
+        function toNDC(e) {
+            var r = canvas.getBoundingClientRect();
+            return ndc.set(((e.clientX - r.left) / r.width) * 2 - 1,
+                -((e.clientY - r.top) / r.height) * 2 + 1);
+        }
+
+        function shown(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; }
+        function climb(o) {
+            while (o) {
+                var k = o.userData.pick;
+                if (k) return o;
+                o = o.parent;
+            }
+            return null;
+        }
+        function pickAt(v) {
+            pickRay.setFromCamera(v, camera);
+            var hits = pickRay.intersectObjects(pickables, true);
+            for (var i = 0; i < hits.length; i++) {
+                if (!shown(hits[i].object)) continue;
+                var r = climb(hits[i].object);
+                if (r) return r;
+            }
+            return null;
+        }
+
+        function take(obj) {
+            if (held || !obj) return;
+            held = obj;
+            heldHome = { parent: obj.parent, pos: obj.position.clone(), quat: obj.quaternion.clone() };
+            camera.updateMatrixWorld(true);
+            var wp = new THREE.Vector3(), wq = new THREE.Quaternion(), cq = new THREE.Quaternion();
+            obj.getWorldPosition(wp);
+            obj.getWorldQuaternion(wq);
+            camera.getWorldQuaternion(cq);
+            holdFrom.copy(camera.worldToLocal(wp));
+            holdFromQ.copy(cq.invert().multiply(wq));
+            camera.add(obj);
+            obj.position.copy(holdFrom);
+            obj.quaternion.copy(holdFromQ);
+            holdT = 0; holdDir = 1;
+            hallWait = 3.4;            // 一点五十……她该来了
+        }
+
+        function drop() { if (held) holdDir = -1; }
+
+        // 左键（或手指点一下）：只跟眼前的抽屉、纸打交道
+        function actAt(e) {
+            if (S.over) return true;
+            if (held) { drop(); return true; }
+            var locked = document.pointerLockElement === canvas;
+            var v = locked ? ndc.set(0, 0) : toNDC(e);
+            var o = pickAt(v);
+            if (!o) return false;
+            if (distTo(o) > REACH) {                 // 够不着：先走过去，站定了再动手
+                dest = nudge(standBy(o));
+                finalDest = dest.clone(); detour = 0;
+                pendingAct = o;
+                return true;
+            }
+            act(o);
+            return true;
+        }
+
+        // 右键：点地上哪儿就走哪儿
+        function moveAt(e) {
+            if (S.over) return true;
+            var locked = document.pointerLockElement === canvas;
+            if (locked) {                            // 锁了指针就没有落点，朝正前方挪一步
+                var f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                f.y = 0;
+                if (f.lengthSq() < 0.002) return false;
+                f.normalize();
+                dest = nudge(new THREE.Vector3(pos.x + f.x * 0.9, 0, pos.z + f.z * 0.9));
+                finalDest = dest.clone(); detour = 0;
+                return true;
+            }
+            var gp = groundPoint(toNDC(e));
+            if (!gp) return false;
+            if (Math.abs(gp.x - pos.x) + Math.abs(gp.z - pos.z) < 0.15) return false;   // 本来就站在这儿
+            dest = nudge(gp);
+            finalDest = dest.clone(); detour = 0;
+            return true;
+        }
+
+        /* ══════════ 走位：点地上哪就走到哪，家具得绕开 ══════════ */
+        var REACH = 2.0;                     // 胳膊的长度
+        var RP = 0.28;                       // 人的胖瘦
+        var pos = EYE.clone();               // 脚下的位置
+        var dest = null, finalDest = null, walkBob = 0, walking = false, stickT = 0, detour = 0, stepAcc = 0;
+        var pendingAct = null;
+        var groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        var probe = new THREE.Vector3();
+
+        // 地上所有叫得出名字的东西都挡路
+        var blockers = [];
+        (function () {
+            var bb = new THREE.Box3();
+            scene.traverse(function (o) {
+                if (!o.userData.name && !o.userData.solid) return;
+                if (o.userData.pick === 'paper') return;
+                bb.setFromObject(o);
+                if (bb.min.y > 0.28) return;                    // 挂高处的挡不住人
+                if (bb.max.x - bb.min.x > 4.2) return;          // 整间屋子级别的不要
+                blockers.push({ x0: bb.min.x, x1: bb.max.x, z0: bb.min.z, z1: bb.max.z });
+            });
+        })();
+
+        function nudge(p) {                  // 挤出家具，再关回屋里
+            for (var i = 0; i < blockers.length; i++) {
+                var b = blockers[i];
+                var x0 = b.x0 - RP, x1 = b.x1 + RP, z0 = b.z0 - RP, z1 = b.z1 + RP;
+                if (p.x <= x0 || p.x >= x1 || p.z <= z0 || p.z >= z1) continue;
+                var dl = p.x - x0, dr = x1 - p.x, db = p.z - z0, df = z1 - p.z;
+                var m = Math.min(dl, dr, db, df);
+                if (m === dl) p.x = x0; else if (m === dr) p.x = x1;
+                else if (m === db) p.z = z0; else p.z = z1;
+            }
+            p.x = Math.max(-RW / 2 + WT + RP, Math.min(RW / 2 - WT - RP, p.x));
+            p.z = Math.max(-RD / 2 + WT + RP, Math.min(2.7, p.z));    // 门那头不敢再往前
+            return p;
+        }
+
+        function groundPoint(v) {
+            pickRay.setFromCamera(v, camera);
+            var p = new THREE.Vector3();
+            return pickRay.ray.intersectPlane(groundPlane, p) ? p : null;
+        }
+
+        function centerOf(o) {
+            var bb = new THREE.Box3().setFromObject(o);
+            return new THREE.Vector3((bb.min.x + bb.max.x) / 2, 0, (bb.min.z + bb.max.z) / 2);
+        }
+
+        function distTo(o) {
+            var c = centerOf(o);
+            return Math.sqrt((c.x - pos.x) * (c.x - pos.x) + (c.z - pos.z) * (c.z - pos.z));
+        }
+
+        function standBy(o) {                // 停在东西跟前一米，别贴脸上
+            var c = centerOf(o);
+            var d = distTo(o) || 1;
+            return new THREE.Vector3(c.x - (c.x - pos.x) / d, 0, c.z - (c.z - pos.z) / d);
+        }
+
+        function act(o) {
+            var k = o.userData.pick;
+            if (k === 'drawer') {
+                o.userData.target = o.userData.target > 0.5 ? 0 : 1;
+                noise(0.14, null, true);          // 滑轨发涩，心跳跟着快半拍
+                return;
+            }
+            if (o.userData.onAct) { o.userData.onAct.call(o, o); return; }
+            toast(o.userData.tip || o.userData.name || '');
+        }
+
+        /* ══════════ 拖动（花盆 / 水杯 / 铁皮柜） ══════════ */
+        var dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        var drag = null, dragEndT = 0;
+        function dragBegin(o, e) {
+            if (o.userData.drag === 'cabinet' && (!S.potOff || !S.cupOff)) {
+                toast('柜顶的花盆和水杯压着，推不动。先把它们挪开。');
+                return;
+            }
+            dragPlane.constant = -(o.userData.drag === 'cabinet' ? 0 : o.position.y);
+            var ox = 0, oz = 0;
+            pickRay.setFromCamera(toNDC(e), camera);
+            var p = new THREE.Vector3();
+            if (pickRay.ray.intersectPlane(dragPlane, p)) {
+                ox = Math.max(-0.6, Math.min(0.6, o.position.x - p.x));
+                oz = Math.max(-0.6, Math.min(0.6, o.position.z - p.z));
+            }
+            drag = { o: o, type: o.userData.drag, home: o.userData.home.clone(), ox: ox, oz: oz };
+            canvas.classList.add('dragging');
+        }
+        function dragMove(e) {
+            if (!drag) return;
+            pickRay.setFromCamera(toNDC(e), camera);
+            var p = new THREE.Vector3();
+            if (!pickRay.ray.intersectPlane(dragPlane, p)) return;
+            var o = drag.o;
+            if (drag.type === 'cabinet') {
+                var nx = Math.max(-RW / 2 + 0.45, Math.min(RW / 2 - 0.45, p.x + drag.ox));
+                var nz = Math.max(-RD / 2 + 0.45, Math.min(RD / 2 - 0.45, p.z + drag.oz));
+                var d = Math.abs(nx - o.position.x) + Math.abs(nz - o.position.z);
+                o.position.x = nx; o.position.z = nz;
+                S.cabNoise += d;
+                noise(d * 0.5, null, true);
+                if (!S.cabMoved && o.position.distanceTo(drag.home) > 0.45) {
+                    S.cabMoved = true;
+                    secretDoor.visible = true;
+                }
+                if (S.cabNoise > 0.55 && !S.cabWarn) {
+                    S.cabWarn = true;
+                    toast('柜脚刮着地板，声音顺着门缝传了出去。', true);
+                }
+                if (S.cabNoise > 0.9) {
+                    if (S.t >= SAFE_T) { dragStop(); caught('柜子蹭地的动静，一直没停过。'); }
+                    else { S.cabNoise = 0.45; toast('（安全期：还没人走到这一层）', true); }
+                }
+            } else {
+                o.position.x = Math.max(-RW / 2 + 0.3, Math.min(RW / 2 - 0.3, p.x + drag.ox));
+                o.position.z = Math.max(-RD / 2 + 0.3, Math.min(RD / 2 - 0.3, p.z + drag.oz));
+            }
+        }
+        function dragStop() {
+            if (!drag) return;
+            var o = drag.o;
+            if (drag.type === 'item') {
+                var onTop = Math.abs(o.position.x - 4.12) < 0.34 && Math.abs(o.position.z - 0.8) < 0.52;
+                o.position.y = onTop ? 1.12 : (o.userData.restY || 0);
+                if (o.position.distanceTo(drag.home) > 0.22 || !onTop) {
+                    if (o === pot2 && !S.potOff) {
+                        S.potOff = true;
+                        keyG.visible = true;
+                        toast('花盆挪开了——底下压着一把小钥匙。');
+                        noise(0.2, '花盆蹭过柜顶，土屑簌簌地落在地上。', true);
+                        o.userData.drag = null;                    // 挪过一次就固定了
+                    } else if (o === cup2 && !S.cupOff) {
+                        S.cupOff = true;
+                        noise(0.14, null, true);
+                        toast('水杯挪开了。');
+                        o.userData.drag = null;
+                    } else {
+                        noise(0.1, null, true);
+                    }
+                }
+            } else if (S.cabMoved) {
+                o.userData.drag = null;                            // 柜子挪开后推不动了
+            }
+            drag = null; dragEndT = Date.now();
+            canvas.classList.remove('dragging');
+        }
+
+        // 键盘：只转视角，不走位
+        var keys = {};
+        window.addEventListener('keydown', function (e) {
+            keys[String(e.key).toLowerCase()] = true;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.key) >= 0) e.preventDefault();
+            if (e.key === 'Escape') drop();          // 把手里的东西放回去
+            if (e.key === 'f' || e.key === 'F') {    // 手电筒开关
+                if (!S.torch) { toast('你还没有手电筒。'); return; }
+                S.torchOn = !S.torchOn;
+                applyLight();
+                sfxClick();
+                toast(S.torchOn ? '手电筒：开。' : '手电筒：关。');
+            }
+        });
+        window.addEventListener('keyup', function (e) { keys[String(e.key).toLowerCase()] = false; });
+
+        // 指针锁定
+        var lockBtn = $('lock-btn');
+        if (lockBtn) lockBtn.addEventListener('click', function () {
+            if (canvas.requestPointerLock) canvas.requestPointerLock();
+        });
+        canvas.addEventListener('click', function (e) {
+            var locked = document.pointerLockElement === canvas;
+            // 拖着转视角松手时也会触发 click，位移过大就不算点击
+            if (S.over) return;
+            if (Date.now() - dragEndT < 260) return;                 // 刚拖完东西，不当成点击
+            if (!locked && (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 8
+                || Date.now() - downT > 700)) return;
+            if (actAt(e)) return;                    // 左键只管抽屉和纸，走位交给右键
+            if (!locked && canvas.requestPointerLock) canvas.requestPointerLock();
+        });
+        document.addEventListener('pointerlockchange', function () {
+            var on = document.pointerLockElement === canvas;
+            canvas.classList.toggle('locked', on);
+            if (lockBtn) lockBtn.textContent = on ? '按 Esc 解锁' : '锁定鼠标';
+        });
+
+        /* ══════════ 主循环 ══════════ */
+        var clock = new THREE.Clock();
+
+        // 节奏：走廊里的人影 / 远处的闪电
+        var hallPhase = -1, hallWait = 7 + Math.random() * 9, hallDir = 1;
+        var flashT = -1, flashWait = 5 + Math.random() * 11;
+        var ghostT = -1, ghostWait = 16 + Math.random() * 22, ghostDir = 1;
+
+        var crashed = false;
+
+        function frame() {
+            var dt = Math.min(clock.getDelta(), 0.05);
+            var t = clock.elapsedTime;
+
+            /* ── 潜入：计时 / 发条 / 噪音 ── */
+            if (S.run && !S.over) {
+                S.t += dt;
+                S.wind -= dt;
+                if (S.wind <= 0) {                       // 发条走完 → 玩具替你尖叫 → 直接判负
+                    S.wind = 0;
+                    sfxScream();
+                    toast('发条玩具尖叫起来，齿轮疯转，整个屋子都是它的声音。', true);
+                    caught('发条玩具替你叫了出来。');
+                }
+                if (S.t >= LIMIT_T) caught('十五分钟。走廊的灯全亮了，拖把停在你背后。');
+            }
+            S.noise = Math.max(0, S.noise - dt * 0.055);
+            S.heart = Math.max(0, S.heart - dt * 0.07);
+            holdTick(dt); toastTick(dt); recTick(dt); sndTick(dt); noiseTick(dt);
+            // 没有 HUD 了，发条快走完时提醒一次
+            if (S.run && !S.over && S.wind < 25 && !S.windWarn) {
+                S.windWarn = true;
+                toast('发条快走完了。按住左键给它上弦。', true);
+            }
+
+            // 键盘转视角
+            var kv = 1.1 * dt;
+            if (keys['ArrowLeft']) tYaw += kv;
+            if (keys['ArrowRight']) tYaw -= kv;
+            if (keys['ArrowUp']) tPitch += kv;
+            if (keys['ArrowDown']) tPitch -= kv;
+            tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
+
+            // 平滑
+            yaw += (tYaw - yaw) * Math.min(1, dt * 14);
+            pitch += (tPitch - pitch) * Math.min(1, dt * 14);
+            applyLook();
+
+            // 变焦：像摄像机的电动变焦那样，一点点推过去（不是一格一格跳）
+            if (Math.abs(fovT - camera.fov) > 0.02) {
+                camera.fov += (fovT - camera.fov) * Math.min(1, dt * 4.2);
+                camera.updateProjectionMatrix();
+            }
+
+            // 走位：WASD 直接走（撞到家具就贴着边蹭）
+            walking = false;
+            if (S.run && !S.over) {
+                var mf = 0, ms = 0;
+                if (keys['w']) mf += 1;
+                if (keys['s']) mf -= 1;
+                if (keys['d']) ms += 1;
+                if (keys['a']) ms -= 1;
+                if (mf || ms) {
+                    dest = null; finalDest = null; pendingAct = null;   // 键盘接管，取消点地走位
+                    var sy = Math.sin(yaw), cy = Math.cos(yaw);
+                    var fx = -sy, fz = -cy;                             // 正前方（yaw=0 时朝 -Z）
+                    var rx = cy, rz = -sy;                              // 右手边
+                    var ln = Math.sqrt(mf * mf + ms * ms);
+                    var vx = (fx * mf + rx * ms) / ln, vz = (fz * mf + rz * ms) / ln;
+                    var sp2 = 2.1 * dt;
+                    var kx = pos.x, kz = pos.z;
+                    probe.set(pos.x + vx * sp2, 0, pos.z);
+                    nudge(probe);
+                    if (Math.abs(probe.x - pos.x) > sp2 * 0.3) pos.x = probe.x;
+                    probe.set(pos.x, 0, pos.z + vz * sp2);
+                    nudge(probe);
+                    if (Math.abs(probe.z - pos.z) > sp2 * 0.3) pos.z = probe.z;
+                    walking = true;
+                    walkBob += dt * 6.4;
+                    stepAcc += Math.abs(pos.x - kx) + Math.abs(pos.z - kz);
+                    if (stepAcc > 0.62) {                               // 走一步就有一步的动静
+                        stepAcc = 0; sfxStep(); noise(0.05, null, true);
+                    }
+                }
+            }
+            if (dest) {
+                var dx = dest.x - pos.x, dz = dest.z - pos.z;
+                var dd = Math.sqrt(dx * dx + dz * dz);
+                if (dd > 0.04) {
+                    var sp = Math.min(Math.min(dd * 2.4, 1.45) * dt, dd);
+                    var ox = pos.x, oz = pos.z;
+                    // 两个方向分开试，撞上就顺着边蹭过去
+                    probe.set(pos.x + dx / dd * sp, 0, pos.z);
+                    nudge(probe);
+                    if (Math.abs(probe.x - pos.x) > sp * 0.35) pos.x = probe.x;
+                    probe.set(pos.x, 0, pos.z + dz / dd * sp);
+                    nudge(probe);
+                    if (Math.abs(probe.z - pos.z) > sp * 0.35) pos.z = probe.z;
+                    walking = true;
+                    walkBob += dt * 6.4;
+                    stickT = Math.abs(pos.x - ox) + Math.abs(pos.z - oz) < 0.004 ? stickT + dt : 0;
+                    if (stickT > 0.4) {                          // 卡住了：斜插出去绕一圈再回来
+                        if (detour < 2) {
+                            detour++; stickT = 0;
+                            var ta = Math.atan2(dx, dz) + (detour % 2 ? 1.0 : -1.0);
+                            var tl = Math.min(1.4, dd);
+                            dest = nudge(new THREE.Vector3(pos.x + Math.sin(ta) * tl, 0, pos.z + Math.cos(ta) * tl));
+                        } else {
+                            dest = null; finalDest = null; pendingAct = null; stickT = 0; detour = 0;
+                        }
+                    }
+                } else {
+                    pos.x = dest.x; pos.z = dest.z; dest = null; stickT = 0;
+                    if (finalDest && (Math.abs(finalDest.x - pos.x) > 0.06 || Math.abs(finalDest.z - pos.z) > 0.06)) {
+                        dest = finalDest.clone();                // 绕过点到了，接着往正经目的地走
+                    } else {
+                        finalDest = null; detour = 0;
+                        if (pendingAct) {
+                            if (distTo(pendingAct) <= REACH) act(pendingAct);   // 站定了才伸手
+                            pendingAct = null;
+                        }
+                    }
+                }
+            }
+
+            // 站着的紧张 vs 走路的轻晃
+            var shake = walking ? 0.4 : 1;
+            camera.position.set(
+                pos.x + Math.sin(t * 0.7) * 0.006 * shake,
+                EYE.y + (walking ? Math.sin(walkBob) * 0.022 : 0) + Math.sin(t * 1.35) * 0.009 * shake,
+                pos.z + Math.cos(t * 0.55) * 0.005 * shake
+            );
+
+            // 手里的东西：拿到眼前 / 放回原处
+            if (held) {
+                holdT = Math.max(0, Math.min(1, holdT + holdDir * dt / 0.4));
+                var hk = holdT * holdT * (3 - 2 * holdT);
+                held.position.lerpVectors(holdFrom, holdTo, hk);
+                held.quaternion.slerpQuaternions(holdFromQ, holdToQ, hk);
+                if (holdDir < 0 && holdT <= 0) {
+                    camera.remove(held);
+                    heldHome.parent.add(held);
+                    held.position.copy(heldHome.pos);
+                    held.quaternion.copy(heldHome.quat);
+                    held = null; heldHome = null;
+                }
+            }
+
+            // 抽屉开合：滑轨发涩，走的时候会顿一下
+            for (var di = 0; di < allDrawers.length; di++) {
+                var dw = allDrawers[di], du = dw.userData;
+                if (Math.abs(du.cur - du.target) > 0.0015) {
+                    du.cur += (du.target - du.cur) * Math.min(1, dt * 9);
+                    dw.position.z = du.closedZ + du.cur * 0.3;
+                    dw.position.y = du.baseY + (du.cur > 0.03 && du.cur < 0.97 ? Math.sin(t * 47) * 0.0018 : 0);
+                } else if (du.cur !== du.target) {
+                    du.cur = du.target;
+                    dw.position.z = du.closedZ + du.cur * 0.3;
+                    dw.position.y = du.baseY;
+                }
+            }
+
+            // 吊扇：没人开，只剩惯性的余转
+            fan.rotation.y += dt * 0.26;
+
+            // 挂钟：停在本局随机的时间上（密码就写在表盘上）
+            // 注意取负：钟整体绕 Y 转了 180°，指针跟着镜像，不取负会左右颠倒
+            pivotM.rotation.z = -(CLOCK_M / 60) * Math.PI * 2;
+            pivotH.rotation.z = -(((CLOCK_H % 12) + CLOCK_M / 60) / 12) * Math.PI * 2;
+            if (bellShake > 0) {                         // 铃铛被撞响后的余韵
+                bellShake = Math.max(0, bellShake - dt * 1.1);
+                bellG.rotation.z = Math.sin(t * 42) * 0.45 * bellShake;
+            }
+            // 窗外黑影：贴着玻璃一闪而过
+            if (ghostT < 0) {
+                ghostWait -= dt;
+                if (ghostWait <= 0) { ghostT = 0; ghostDir = Math.random() < 0.5 ? 1 : -1; ghost.visible = true; ghostWait = 16 + Math.random() * 26; }
+            } else {
+                ghostT += dt / 0.4;
+                if (ghostT >= 1) { ghostT = -1; ghost.visible = false; }
+                else ghost.position.x = ghostDir > 0 ? (-7 + 14 * ghostT) : (7 - 14 * ghostT);
+            }
+
+            // 手电筒电池不行：光在抖，偶尔几乎灭掉
+            if (S.torch && S.torchOn) {
+                var jitter = Math.sin(t * 27) * 0.045 + Math.sin(t * 41.3) * 0.035;
+                var dip = Math.sin(t * 0.31) > 0.988 ? 0.22 : 1;
+                torch.intensity = 3.6 * (0.88 + jitter + Math.sin(t * 5.1) * 0.03) * dip;
+            }
+
+            // 没关的那台电脑：成绩表，屏幕不太稳
+            var flick = 0.9 + Math.sin(t * 7.3) * 0.05 + Math.sin(t * 17.1) * 0.04;
+            if (Math.random() < 0.005) flick *= 0.12;
+            glowL.intensity = 0.62 * flick;
+            monGlow.intensity = 0.16 * flick;
+            cctvGlow.intensity = 0.55 * (0.92 + Math.sin(t * 2.7) * 0.05);   // 监控屏那点光也在轻微呼吸
+
+            // 夜风吹动窗帘
+            curtainL.rotation.z = Math.sin(t * 0.62) * 0.035 + Math.sin(t * 1.7) * 0.012;
+            curtainR.rotation.z = Math.sin(t * 0.55 + 1.2) * 0.03;
+
+            // 走廊：偶尔有人从门口经过，影子压过门缝
+            if (hallPhase < 0) {
+                hallWait -= dt;
+                if (hallWait <= 0) { hallPhase = 0; hallDir = Math.random() < 0.5 ? 1 : -1; }
+            } else {
+                hallPhase += dt / 1.6;
+                if (hallPhase >= 1) {
+                    hallPhase = -1;
+                    hallWait = 15 + Math.random() * 22;
+                    doorBlock.material.opacity = 0;
+                    doorGlow.intensity = 0.9;
+                } else {
+                    var shade = Math.sin(Math.PI * hallPhase);
+                    doorGlow.intensity = 0.9 * (1 - 0.9 * shade);
+                    doorBlock.material.opacity = 0.88 * shade;
+                    doorBlock.position.x = hallDir > 0 ? (2.12 + hallPhase * 0.96) : (3.08 - hallPhase * 0.96);
+                }
+            }
+
+            // 远处闪电：整间屋子会亮一下
+            if (flashT < 0) {
+                flashWait -= dt;
+                if (flashWait <= 0) { flashT = 0; flashWait = 20 + Math.random() * 34; }
+            } else {
+                flashT += dt;
+                var fa = 0;
+                if (flashT < 0.07) fa = flashT / 0.07;
+                else if (flashT < 0.19) fa = 1 - (flashT - 0.07) / 0.12;
+                else if (flashT < 0.36) fa = 0.5 * (1 - (flashT - 0.19) / 0.17);
+                else { flashT = -1; fa = 0; }
+                moon.intensity = 0.5 + fa * 3.4;
+                var fl = $('flick');
+                if (fl) fl.style.opacity = String(Math.min(0.34, fa * 0.3));
+            }
+
+            // ── 被发现：猛地回头看向大门 → 门被一脚踹开 → 结局 ──
+            if (caughtT >= 0) {
+                caughtT += dt;
+                if (caughtT < 0.7) {
+                    tYaw += (lookTo.yaw - tYaw) * Math.min(1, dt * 5.5);
+                    tPitch += (lookTo.pitch - tPitch) * Math.min(1, dt * 5.5);
+                } else if (caughtT < 1.15) {
+                    doorPivot.rotation.y = 1.5 * Math.min(1, (caughtT - 0.7) / 0.45);
+                    if (!kicked) {
+                        kicked = true; sfxKick();
+                        var fl2 = $('flick');
+                        if (fl2) { fl2.style.opacity = '0.45'; setTimeout(function () { fl2.style.opacity = '0'; }, 240); }
+                        toast('门被一脚踹开了。', true);
+                    }
+                } else if (!overShown) {
+                    overShown = true;
+                    showOver('被 发 现',
+                        '门被一脚踹开，走廊的灯把你的影子钉在墙上。<br>' +
+                        (S.reason ? S.reason + '<br>' : '') +
+                        '拖把停在门口，后面是秦主任的脸。<br>' +
+                        '你带走的线索：' + S.clues + ' 条。',
+                        '秦主任办公室 · 7F · ' + fmt(S.t));
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function animate() {
+            if (crashed) return;
+            requestAnimationFrame(animate);
+            try {
+                frame();
+            } catch (e) {
+                crashed = true;
+                showError('渲染中断', (e && e.message) ? e.message : String(e),
+                    '多为 WebGL 上下文丢失或显卡驱动异常，刷新页面通常可恢复。');
+            }
+        }
+
+        resize();
+        frame();          // 先渲染一帧，确保初始化完整
+        animate();
+
+        // 收起遮罩
+        setTimeout(function () {
+            var maskEl = $('mask');
+            if (maskEl) maskEl.classList.add('hide');
+        }, 420);
+
+        // 操作提示：黑幕结束后才出现，过一会儿自己淡掉
+        setTimeout(function () {
+            var intro = $('intro');
+            if (intro) intro.classList.add('gone');
+        }, 17000);
+
+        // 开局黑幕：杨紫萱的两句台词
+        introSeq();
+        bagDraw();
+    }
+
+    // 注意：不能直接把 loadThree 交给事件监听器（首个参数会变成 Event）
+    function start() { loadThree(0); }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start, { once: true });
+    } else {
+        start();
+    }
+})();
+</script>
+</body>
+</html>
