@@ -143,6 +143,40 @@
         animation: recBlink 1.4s steps(1, end) infinite;
     }
     @keyframes recBlink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: .12; } }
+    #recfx .mic {                       /* 右侧的录音电平表：摄像机在记录你有多吵 */
+        position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+        display: flex; align-items: flex-end; gap: 7px;
+        font: 600 10px/1 "Courier New", monospace; letter-spacing: 1px;
+        color: #9aa3ac; text-shadow: 0 0 6px #000;
+    }
+    #recfx .mic .lb { writing-mode: vertical-rl; letter-spacing: 3px; color: #7d858e; }
+    #recfx .mic .trk {
+        position: relative; width: 11px; height: 156px;
+        background: #0a0e13; border: 1px solid #1d242c; overflow: hidden;
+    }
+    #recfx .mic .trk i {
+        position: absolute; left: 0; right: 0; bottom: 0; height: 0;
+        background: #6f8a6f; transition: height .06s linear, background .2s linear;
+    }
+    #recfx .mic .trk i.warn { background: #c9a04a; }
+    #recfx .mic .trk i.bad { background: #d24b4b; }
+    #recfx .mic .trk b {                       /* 峰值保持：那一格会慢慢掉下来 */
+        position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 2;
+        background: #e8eef4; opacity: .85;
+    }
+    #recfx .mic .trk::after {                  /* 切成一格一格的 LED 段 */
+        content: ''; position: absolute; inset: 0;
+        background: repeating-linear-gradient(to top, rgba(0, 0, 0, 0) 0 6px, #06090c 6px 8px);
+    }
+    #recfx .mic .sc {
+        display: flex; flex-direction: column; justify-content: space-between;
+        height: 156px;                       /* 0 在上，-40 在下 */
+    }
+    #recfx .mic .sc span { color: #5e666f; font-size: 9px; }
+    @media (max-width: 640px) {
+        #recfx .mic .trk { height: 96px; }
+        #recfx .mic .sc { height: 96px; }
+    }
     #recfx .zoom {                      /* 变焦读数：跟着焦距一起走 */
         position: absolute; top: 86px; left: 20px;
         font: 600 13px/1 "Courier New", monospace; letter-spacing: 2px;
@@ -174,25 +208,6 @@
     #blackout .ln.on { opacity: 1; }
     #blackout .ln small { display: block; margin-top: 8px; font-size: 12px; color: #6b7480; letter-spacing: 3px; }
     #blackout .skip { position: absolute; bottom: 26px; font-size: 11px; color: #4a5158; letter-spacing: 2px; }
-
-    /* ── 右上角噪音指数 ── */
-    #noise-hud {
-        position: fixed; top: 46px; right: 12px; z-index: 9;
-        display: flex; align-items: center; gap: 8px;
-        padding: 6px 11px; background: rgba(9, 11, 15, .6);
-        border: 1px solid #1c2028; backdrop-filter: blur(6px);
-        font-size: 11.5px; color: #8b939c; letter-spacing: 1px; pointer-events: none;
-        opacity: .82;
-    }
-    #noise-hud .lb { color: #6b7480; }
-    #noise-hud .bar { width: 110px; height: 4px; background: #1b2028; overflow: hidden; }
-    #noise-hud .bar i {
-        display: block; height: 100%; width: 0; background: #6b7f96;
-        transition: width .2s linear, background .2s linear;
-    }
-    #noise-hud .vl { min-width: 44px; text-align: right; color: #aeb6be; }
-    #noise-hud .vl.warn { color: #c08a4a; }
-    #noise-hud .vl.bad { color: #c1453f; }
 
     /* 声音关着的时候，按钮别长得跟开着一样 */
     .btn.off { color: #c08a4a; border-color: #46361f; background: rgba(30, 22, 10, .55); }
@@ -334,6 +349,11 @@
     <div class="rec"><i></i>REC</div>
     <div class="zoom" id="rec-zoom">ZOOM ×1.0</div>
     <div class="tc"><span id="rec-tc">18:00:00</span><small>校园监控 · 备用机位 · CH07</small></div>
+    <div class="mic">
+        <span class="lb">MIC</span>
+        <div class="trk"><i id="mic-bar"></i><b id="mic-peak"></b></div>
+        <div class="sc"><span>0</span><span>-6</span><span>-12</span><span>-20</span><span>-40</span></div>
+    </div>
 </div>
 
 <div class="topbar">
@@ -343,12 +363,6 @@
     <button class="btn" id="snd-btn" type="button">声音 关</button>
     <button class="btn primary" id="lock-btn" type="button">锁定鼠标</button>
     <a class="btn" href="index.html">返回墙墙</a>
-</div>
-
-<div id="noise-hud">
-    <span class="lb">噪音</span>
-    <div class="bar"><i id="noise-bar"></i></div>
-    <span class="vl" id="noise-t">安静</span>
 </div>
 
 <div id="toast"></div>
@@ -1097,18 +1111,20 @@
             if (S.wind >= WIND_MAX) { if (holdLabel) holdLabel.textContent = '发条 满'; holdEnd(); }
         }
 
-        /* ---------- 右上角噪音指数 ---------- */
-        var nzAcc = 0;
+        /* ---------- 右侧录音电平表：摄像机正在记录你有多吵 ---------- */
+        var micBar = $('mic-bar'), micPeak = $('mic-peak'), micPk = 0, nzAcc = 0;
         function noiseTick(dt) {
-            nzAcc += dt; if (nzAcc < 0.12) return; nzAcc = 0;
-            var bar = $('noise-bar'), txt = $('noise-t');
-            if (bar) {
-                bar.style.width = Math.round(S.noise * 100) + '%';
-                bar.style.background = S.noise > .6 ? '#c1453f' : (S.noise > .3 ? '#c08a4a' : '#6b7f96');
+            nzAcc += dt; if (nzAcc < 0.055) return; nzAcc = 0;      // 电平表要跳得快一点
+            var v = S.noise;
+            micPk = Math.max(v, micPk - dt * 0.35);                 // 峰值保持，慢慢往下掉
+            if (micBar) {
+                var lit = Math.round((0.04 + v * 0.96) * 100);
+                micBar.style.height = lit + '%';
+                micBar.className = v > .6 ? 'bad' : (v > .3 ? 'warn' : '');
             }
-            if (txt) {
-                txt.textContent = S.noise > .6 ? '太响了' : (S.noise > .3 ? '有点吵' : '安静');
-                txt.className = 'vl' + (S.noise > .6 ? ' bad' : (S.noise > .3 ? ' warn' : ''));
+            if (micPeak) {
+                micPeak.style.bottom = Math.round((0.04 + micPk * 0.96) * 100) + '%';
+                micPeak.style.opacity = micPk > 0.02 ? '0.85' : '0';
             }
         }
 
@@ -1186,10 +1202,7 @@
             var a = acx();
             if (!a) return;
             if (a.state !== 'running' && a.resume) { try { a.resume(); } catch (e) { } }
-            if (S.run) {
-                if (!amb) ambStart();               // 之前没起来的环境音补上
-                if (bgmEl && bgmEl.paused) bgmStart();   // 音乐被浏览器拦了就再试一次
-            }
+            if (!amb && S.run) ambStart();          // 之前没起来的环境音补上
         }
         ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
             window.addEventListener(ev, function () { gestured = true; audioUnlock(); }, { passive: true });
@@ -1322,7 +1335,7 @@
         function showOver(title, html, sub) {
             var o = $('over'); if (!o) return;
             leaveLock();                     // 不放鼠标，结局按钮点不到，只能强制关网页
-            ambStop(); bgmStop();            // 环境音和音乐一起收掉
+            ambStop();
             setTxt('over-t1', title);
             var t2 = $('over-t2'); if (t2) t2.innerHTML = html;
             setTxt('over-t3', sub || '');
@@ -1374,9 +1387,9 @@
                 if (!sndOn) setTimeout(function () {
                     toast(' ');
                 }, 3200);
-                // 这一次点击算用户手势，先把音频上下文拉起来，再决定要不要环境音 / 音乐
+                // 这一次点击算用户手势，先把音频上下文拉起来，再决定要不要环境音
                 audioUnlock();
-                if (sndOn) { acx(); ambStart(); bgmStart(); }
+                if (sndOn) { acx(); ambStart(); }
             }
             if (!bo) { S.run = true; return; }
             bo.classList.add('show');
@@ -1484,7 +1497,7 @@
         box(2.7, 0.05, 0.08, MAT.grey, 0, -0.62, 0.02, boardG);   // 笔槽
         box(0.12, 0.02, 0.02, MAT.red, -0.5, -0.6, 0.05, boardG);
         box(0.12, 0.02, 0.02, MAT.blue, 0.4, -0.6, 0.05, boardG);
-        mark(boardG, '值日表', '值日表：第 9 周。周三那一行被标了黄，备注栏写着「办公室谈话（长期）」。');
+        mark(boardG, '值日表');
 
         /* ══════════ 挂钟 ══════════ */
         var clockG = grp(1.0, 2.45, sz - 0.14, Math.PI);
@@ -1915,7 +1928,7 @@
             g.fillStyle = '#c0392b'; g.font = 'bold 30px "Microsoft YaHei", sans-serif';
             g.fillText('访问已被拦截', w / 2, 120);
             g.fillStyle = '#7d8b9a'; g.font = '16px "Microsoft YaHei", sans-serif';
-            g.fillText('根据《校园网络信息安全管理办法》', w / 2, 158);
+            g.fillText('此IP无法访问', w / 2, 158);
             g.fillText('该页面已被 校信息委员 防火墙阻断', w / 2, 184);
             g.strokeStyle = 'rgba(176,32,32,.75)'; g.lineWidth = 3;
             g.strokeRect(w / 2 - 118, 210, 236, 62);
@@ -1975,7 +1988,7 @@
                 '如需申诉，请联系信息中心（工作日 9:00—16:30）。</div>' +
                 '<div class="stamp">已记录访问设备</div></div></div>' +
                 '<div class="doc" style="margin-top:14px">页面标题只剩半截：……招聘 · 2026。<br>' +
-                '再往下翻需要密码，而密码不在这台电脑上。</div>', '离开屏幕（Esc）');
+                '</div>', '离开屏幕（Esc）');
             noise(0.05, null, true);
         };
         PROPS.push(pcG);
@@ -2056,7 +2069,7 @@
             panelShow('保洁岗位 · 应聘申请书', '机密文件夹 · 第 1 页 · 原件',
                 '<div class="doc">应 聘 申 请 书\n\n' +
                 '尊敬的总务处领导：\n\n' +
-                '我叫周 ××，今年四十三岁，是高二（3）班周雅静的母亲。\n' +
+                '我叫周敏，今年四十三岁，是高二（11）班周雅静的母亲。\n' +
                 '听说学校教学楼要招保洁，我想申请这个岗位。\n\n' +
                 '我在家种过地，也在饭店后厨洗过碗，脏活累活都干得动。\n' +
                 '我不怕吃苦，也不会嫌活儿多。家里现在只剩我一个人挣钱，\n' +
@@ -2067,10 +2080,10 @@
                 '我不会骑自行车太远的路，若能在 3 号楼安排最好。\n\n' +
                 '恳请领导给我一个机会。我一定把活干干净净。\n\n' +
                 '此致\n敬礼\n\n' +
-                '　　　　　　　　　　　　　　申请人：周 ××\n' +
+                '　　　　　　　　　　　　　　申请人：周敏\n' +
                 '　　　　　　　　　　　　　　联系电话：138××××××××\n' +
                 '　　　　　　　　　　　　　　家庭住址：× 县 × 镇 × 村</div>' +
-                '<div class="doc red">页边，红笔批注（不是她的笔迹）：\n' +
+                '<div class="doc red">页边，红笔批注：\n' +
                 '「同意。先顶 3 号楼 5—7 层，22:30 到岗，临时工，按天算。」\n' +
                 '「她女儿的助学金，等这个岗位定下来再议。」</div>' +
                 '<div class="doc">纸的右下角有一小片水渍，字被泡开过又干了。\n' +
@@ -2361,7 +2374,6 @@
                 '夹层最里面，塞着一张照片。</div>' +
                 '<figure class="photo"><img src="img/freezer.png" alt="后厨冷冻柜">' +
                 '<figcaption>备注：摄影社社长</figcaption></figure>' +
-                '<div class="doc red">冷冻柜的盖子开着。<br>里面有一只人的手，五指贴着柜壁。</div>' +
                 '<div class="doc">照片背面用铅笔写着四个字的备注：摄影社社长。<br>' +
                 '没有日期，没有署名，边角有折过的痕。</div>', '收好（Esc）');
             if (S.bag.indexOf('后厨照片') < 0) { bagAdd('后厨照片'); S.clues++; }
@@ -2401,7 +2413,7 @@
                 '· 手机被收走后，老师用自己的账号登了我的校园网。\n' +
                 '· 助学金名单公示了三天，又撤了。\n' +
                 '· 有人看见保洁阿姨在办公室待到很晚。\n' +
-                '· （字迹潦草）别查了，查不到的。</div>' +
+                '· 别查了，查不到的。</div>' +
                 '<div class="doc red">最后一张没有署名，纸角是湿的。</div>', '盖回去（Esc）');
         };
         PROPS.push(compG);
