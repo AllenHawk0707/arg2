@@ -2521,6 +2521,9 @@
         var tYaw = yaw, tPitch = pitch;
         var PITCH_MAX = Math.PI / 2 - 0.06;
         var dragging = false, lastX = 0, lastY = 0;
+        // 鼠标 / 手指的位移不直接改视角，先攒着，每帧放一部分出去 —— 画面永远是滑的
+        var lookBX = 0, lookBY = 0;
+        function lookDelta(dx, dy) { lookBX += dx; lookBY += dy; }
         var downX = 0, downY = 0, downT = 0, downBtn = -1;
         var SENS = 0.0026;
 
@@ -2560,13 +2563,9 @@
         window.addEventListener('mousemove', function (e) {
             if (drag) { dragMove(e); return; }
             if (document.pointerLockElement === canvas) {
-                tYaw -= e.movementX * SENS * 0.85;
-                tPitch -= e.movementY * SENS * 0.85;
-                tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
+                lookDelta(-e.movementX * SENS * 0.85, -e.movementY * SENS * 0.85);
             } else if (dragging) {
-                tYaw -= (e.clientX - lastX) * SENS;
-                tPitch -= (e.clientY - lastY) * SENS;
-                tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
+                lookDelta(-(e.clientX - lastX) * SENS, -(e.clientY - lastY) * SENS);
                 lastX = e.clientX; lastY = e.clientY;
             } else if (!held && Date.now() - lastHover > 110) {
                 // 悬停在能拿起来的东西上，光标变成手型
@@ -2658,9 +2657,7 @@
             if (tTimer && Math.abs(t.clientX - tStart.x) + Math.abs(t.clientY - tStart.y) > TOUCH_SLOP) {
                 clearTimeout(tTimer); tTimer = null;   // 是想划，不是想按
             }
-            tYaw -= (t.clientX - tLast.x) * 0.005;
-            tPitch -= (t.clientY - tLast.y) * 0.005;
-            tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
+            lookDelta(-(t.clientX - tLast.x) * 0.005, -(t.clientY - tLast.y) * 0.005);
             tLast = { x: t.clientX, y: t.clientY };
             e.preventDefault();
         }, { passive: false });
@@ -3014,9 +3011,17 @@
             if (keys['ArrowDown']) tPitch -= kv;
             tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
 
-            // 平滑
-            yaw += (tYaw - yaw) * Math.min(1, dt * 14);
-            pitch += (tPitch - pitch) * Math.min(1, dt * 14);
+            // 平滑：攒下的位移一点点放给目标视角，视角再一点点追上去
+            // 两段都用「跟帧率无关」的指数逼近，掉帧或鼠标刷新率再乱也不会抖、不会跳
+            if (S.over) lookBX = lookBY = 0;                     // 被抓后是强制回头，别让残留的鼠标位移打架
+            var rel = 1 - Math.exp(-dt * 18);                    // 先把缓冲倒出来（约 55ms）
+            var bx = lookBX * rel, by = lookBY * rel;
+            lookBX -= bx; lookBY -= by;
+            tYaw += bx;
+            tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch + by));
+            var lk = 1 - Math.exp(-dt * 12);                     // 再让画面追过去（约 85ms）
+            yaw += (tYaw - yaw) * lk;
+            pitch += (tPitch - pitch) * lk;
             applyLook();
 
             // 变焦：像摄像机的电动变焦那样，一点点推过去（不是一格一格跳）
