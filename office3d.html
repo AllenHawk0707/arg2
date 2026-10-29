@@ -27,7 +27,12 @@
         user-select: none;
         -webkit-tap-highlight-color: transparent;
     }
-    #scene { display: block; width: 100%; height: 100%; cursor: grab; }
+    #scene {
+        display: block; width: 100%; height: 100%; cursor: grab;
+        touch-action: none;                     /* 手机上别抢走手指：长按/拖动全交给游戏 */
+        -webkit-touch-callout: none;            /* 长按不弹系统的复制菜单 */
+        -webkit-user-select: none; user-select: none;
+    }
     #scene.locked { cursor: none; }
     #scene.dragging { cursor: grabbing; }
 
@@ -983,10 +988,21 @@
         function nannyFloor() { return Math.min(7, 1 + S.t / SAFE_T * 6); }
 
         /* ---------- 顶部提示 ---------- */
+        // 触屏设备：界面一个不动，只把「鼠标左键」这类说法换成手指的说法
+        var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
+        function said(s) {
+            if (!IS_TOUCH) return String(s);
+            return String(s)
+                .replace(/按住鼠标左键/g, '手指按住不放')
+                .replace(/按住左键/g, '手指按住不放')
+                .replace(/点一下左键/g, '手指点一下')
+                .replace(/按住不动/g, '按住不放')
+                .replace(/慢慢拖/g, '慢慢拖手指');
+        }
         var toastEl = $('toast'), toastT = 0;
         function toast(msg, bad) {
             if (!toastEl) return;
-            toastEl.textContent = msg;
+            toastEl.textContent = said(msg);
             toastEl.className = 'on' + (bad ? ' bad' : '');
             toastT = 3.4;
         }
@@ -2566,30 +2582,111 @@
             e.preventDefault();
         }, { passive: false });
 
-        // 触摸
-        var tLast = null, tStart = null;
+        // 触摸：划动 = 转视角；两指捏合 = 变焦；按住不动 = 上发条 / 拖走花盆
+        var tLast = null, tStart = null, pinchD = 0;
+        var tTimer = null, tMode = 'look';        // look | drag | wind
+        var TOUCH_HOLD = 230;                     // 按住这么久，算「抓住它」，不是随手划一下
+        var TOUCH_SLOP = 12;                      // 手指会抖，超过这个距离才算真挪了
+
+        function pt(x, y) { return { clientX: x, clientY: y }; }
+        function tDist(ts) {
+            var dx = ts[0].clientX - ts[1].clientX, dy = ts[0].clientY - ts[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+        // 手指按住的地方压着什么：能拧的发条，还是能挪走的东西
+        function touchTarget(x, y) {
+            if (S.over) return null;
+            var o = pickAt(toNDC(pt(x, y)));
+            if (!o) return null;
+            if (o.userData.hold === 'wind' && distTo(o) <= REACH) return { o: o, kind: 'wind' };
+            if (o.userData.drag && distTo(o) <= REACH + 0.35) return { o: o, kind: 'drag' };
+            return null;
+        }
+        function touchCancel() {
+            if (tTimer) { clearTimeout(tTimer); tTimer = null; }
+            if (tMode === 'drag') dragStop();
+            if (tMode === 'wind') holdEnd();
+            tMode = 'look';
+        }
+
         canvas.addEventListener('touchstart', function (e) {
-            tLast = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            tStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        }, { passive: true });
-        canvas.addEventListener('touchmove', function (e) {
-            if (!tLast) return;
+            if (e.touches.length >= 2) {          // 两根手指：捏合变焦
+                touchCancel(); tLast = null; tStart = null;
+                pinchD = tDist(e.touches);
+                return;
+            }
             var t = e.touches[0];
+            tLast = { x: t.clientX, y: t.clientY };
+            tStart = { x: t.clientX, y: t.clientY };
+            tMode = 'look'; pinchD = 0;
+            var tg = touchTarget(t.clientX, t.clientY);
+            if (!tg) return;                      // 那儿没东西可抓，就照旧当划视角
+            var kind = tg.kind, o = tg.o;
+            tTimer = setTimeout(function () {
+                tTimer = null;
+                if (kind === 'wind') {
+                    tMode = 'wind';
+                    holdBegin(windLabel(), function (dt) {
+                        S.wind = Math.min(WIND_MAX, S.wind + dt * 46);
+                        if (Math.random() < 0.2) tone(300 + Math.random() * 160, 0.035, 'square', 0.018);
+                    });
+                } else {
+                    dragBegin(o, pt(t.clientX, t.clientY));
+                    tMode = drag ? 'drag' : 'look';   // 柜子被压着推不动，就还是划视角
+                }
+            }, TOUCH_HOLD);
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', function (e) {
+            if (e.touches.length >= 2) {          // 捏合 = 摄像机变焦（手机没有滚轮）
+                var d = tDist(e.touches);
+                if (pinchD > 0) fovT = Math.max(FOV_MIN, Math.min(FOV_MAX, fovT + (pinchD - d) * 0.11));
+                pinchD = d;
+                e.preventDefault();
+                return;
+            }
+            var t = e.touches[0];
+            if (!tLast) return;
+            if (tMode === 'drag') { dragMove(pt(t.clientX, t.clientY)); e.preventDefault(); return; }
+            if (tMode === 'wind') {
+                // 拧着发条时手挪一点点没关系，挪多了就当松手，接着转视角
+                if (Math.abs(t.clientX - tStart.x) + Math.abs(t.clientY - tStart.y) > 30) {
+                    holdEnd(); tMode = 'look';
+                    tLast = { x: t.clientX, y: t.clientY };
+                } else { e.preventDefault(); return; }
+            }
+            if (tTimer && Math.abs(t.clientX - tStart.x) + Math.abs(t.clientY - tStart.y) > TOUCH_SLOP) {
+                clearTimeout(tTimer); tTimer = null;   // 是想划，不是想按
+            }
             tYaw -= (t.clientX - tLast.x) * 0.005;
             tPitch -= (t.clientY - tLast.y) * 0.005;
             tPitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tPitch));
             tLast = { x: t.clientX, y: t.clientY };
             e.preventDefault();
         }, { passive: false });
+
         canvas.addEventListener('touchend', function (e) {
             var t = e.changedTouches && e.changedTouches[0];
-            if (t && tStart && Math.abs(t.clientX - tStart.x) + Math.abs(t.clientY - tStart.y) < 14) {
-                // 手指没有右键：能拿东西就拿，拿不到就当走过去
-                if (!actAt({ clientX: t.clientX, clientY: t.clientY })) {
-                    moveAt({ clientX: t.clientX, clientY: t.clientY });
+            var mv = (t && tStart) ? Math.abs(t.clientX - tStart.x) + Math.abs(t.clientY - tStart.y) : 999;
+            if (tTimer) { clearTimeout(tTimer); tTimer = null; }
+            // 手指的事我们都自己处理了，别再让浏览器补一套鼠标事件（不然抽屉会被开两下）
+            if (e.cancelable && e.touches.length === 0) e.preventDefault();
+            if (tMode === 'drag') dragStop();
+            else if (tMode === 'wind') holdEnd();
+            else if (t && mv < 14) {
+                var o = pickAt(toNDC(pt(t.clientX, t.clientY)));
+                if (o && o.userData.hold === 'wind' && distTo(o) <= REACH) {
+                    // 轻点一下：跟电脑上一样，先看一眼还剩多少（按住不放才是上弦）
+                    holdBegin(windLabel(), function () { });
+                    setTimeout(holdEnd, 40);
+                } else if (!actAt(pt(t.clientX, t.clientY))) {
+                    moveAt(pt(t.clientX, t.clientY));   // 手指没有右键：拿不到就当走过去
                 }
             }
-            tLast = null; tStart = null;
+            tMode = 'look'; tLast = null; tStart = null; pinchD = 0;
+        });
+        canvas.addEventListener('touchcancel', function () {
+            touchCancel(); tLast = null; tStart = null; pinchD = 0;
         });
 
         /* ══════════ 可以拿到眼前细看的东西 ══════════ */
@@ -2854,6 +2951,7 @@
 
         // 指针锁定
         var lockBtn = $('lock-btn');
+        if (IS_TOUCH && lockBtn) lockBtn.style.display = 'none';   // 手机上锁不了鼠标，别占着位置
         if (lockBtn) lockBtn.addEventListener('click', function () {
             if (canvas.requestPointerLock) canvas.requestPointerLock();
         });
