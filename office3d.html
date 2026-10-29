@@ -1140,6 +1140,7 @@
         }
 
         /* ══════════ 声音：全部现场合成，不依赖音频文件 ══════════ */
+        var VOL = 2.2;                                    // 全局音量倍数：所有音效×它
         var ac = null, mgain = null, sndOn = false, amb = null, gestured = false;
         function acx() {
             if (!ac) {
@@ -1147,7 +1148,12 @@
                 var C = window.AudioContext || window.webkitAudioContext;
                 if (!C) return null;
                 ac = new C();
-                mgain = ac.createGain(); mgain.gain.value = 0.9; mgain.connect(ac.destination);
+                mgain = ac.createGain(); mgain.gain.value = 0.95;
+                // 音量抬上去之后容易破音，主输出前挂个压缩器兜底
+                var comp = ac.createDynamicsCompressor();
+                comp.threshold.value = -10; comp.knee.value = 12; comp.ratio.value = 6;
+                comp.attack.value = 0.004; comp.release.value = 0.18;
+                mgain.connect(comp); comp.connect(ac.destination);
             }
             if (ac.state === 'suspended') ac.resume();
             return ac;
@@ -1159,7 +1165,7 @@
             o.frequency.setValueAtTime(f, a.currentTime);
             if (to) o.frequency.exponentialRampToValueAtTime(to, a.currentTime + d);
             g.gain.setValueAtTime(0.0001, a.currentTime);
-            g.gain.exponentialRampToValueAtTime(vol || 0.08, a.currentTime + 0.012);
+            g.gain.exponentialRampToValueAtTime(Math.min(.9, (vol || .08) * VOL), a.currentTime + 0.012);
             g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + d);
             o.connect(g); g.connect(mgain);
             o.start(); o.stop(a.currentTime + d + 0.03);
@@ -1171,7 +1177,7 @@
             for (var i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
             var src = a.createBufferSource(); src.buffer = buf;
             var bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq || 900; bp.Q.value = q || 1.2;
-            var g = a.createGain(); g.gain.value = vol || 0.1;
+            var g = a.createGain(); g.gain.value = Math.min(.9, (vol || .1) * VOL);
             src.connect(bp); bp.connect(g); g.connect(mgain); src.start();
         }
         function ambStart() {
@@ -1180,9 +1186,9 @@
             for (var i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
             var src = a.createBufferSource(); src.buffer = buf; src.loop = true;
             var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260;
-            var g = a.createGain(); g.gain.value = 0.035;                 // 环境低沉白噪音
+            var g = a.createGain(); g.gain.value = 0.085;                 // 环境低沉白噪音
             var dr = a.createOscillator(); dr.type = 'sine'; dr.frequency.value = 54;
-            var dg = a.createGain(); dg.gain.value = 0.028;               // 低频铺垫
+            var dg = a.createGain(); dg.gain.value = 0.06;                // 低频铺垫
             src.connect(lp); lp.connect(g); g.connect(mgain);
             dr.connect(dg); dg.connect(mgain);
             src.start(); dr.start();
@@ -1208,7 +1214,7 @@
         });
 
         /* 背景音乐：audio/true.mp3，循环，淡入淡出，跟着声音开关一起走 */
-        var bgmEl = $('bgm'), BGM_VOL = 0.3, bgmVol = 0, bgmRamp = null;
+        var bgmEl = $('bgm'), BGM_VOL = 0.9, bgmVol = 0, bgmRamp = null;
         function bgmFade(to, secs) {
             if (!bgmEl) return;
             if (bgmRamp) { clearInterval(bgmRamp); bgmRamp = null; }
