@@ -597,6 +597,37 @@
         if ('outputColorSpace' in renderer && THREE.SRGBColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
         else if (THREE.sRGBEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
 
+        /* ---------- 环境贴图：金属得有东西可反射，不然就是塑料 ---------- */
+        // 用一张很小的 canvas 画「这间屋子向外看的样子」：冷月光窗 + 走廊那盏暖灯 + 几乎不反光的地
+        // 数值压得很暗，照到的地方只是让物体有起伏，不会把夜景洗白（不引外部 HDR，单文件照旧）
+        function makeEnvCanvas() {
+            var c = document.createElement('canvas'); c.width = 512; c.height = 256;
+            var g = c.getContext('2d');
+            var sky = g.createLinearGradient(0, 0, 0, 256);
+            sky.addColorStop(0, '#0a0f16'); sky.addColorStop(.45, '#0d1420');
+            sky.addColorStop(.56, '#0a0f16'); sky.addColorStop(1, '#05070a');
+            g.fillStyle = sky; g.fillRect(0, 0, 512, 256);
+            var win = g.createLinearGradient(0, 46, 0, 150);      // 窗：稀薄的月光
+            win.addColorStop(0, 'rgba(150,180,220,.50)'); win.addColorStop(1, 'rgba(58,78,108,.04)');
+            g.fillStyle = win; g.fillRect(96, 46, 130, 104);
+            var warm = g.createRadialGradient(402, 122, 3, 402, 122, 96);   // 走廊那盏灯
+            warm.addColorStop(0, 'rgba(255,198,138,.42)'); warm.addColorStop(1, 'rgba(255,178,118,0)');
+            g.fillStyle = warm; g.fillRect(290, 20, 230, 210);
+            g.fillStyle = 'rgba(22,20,17,.55)'; g.fillRect(0, 202, 512, 54);  // 地面：几乎不反光
+            return c;
+        }
+        try {
+            if (THREE.PMREMGenerator) {
+                var envSrc = new THREE.CanvasTexture(makeEnvCanvas());
+                envSrc.mapping = THREE.EquirectangularReflectionMapping;
+                if (THREE.SRGBColorSpace !== undefined && 'colorSpace' in envSrc) envSrc.colorSpace = THREE.SRGBColorSpace;
+                else if (THREE.sRGBEncoding !== undefined) envSrc.encoding = THREE.sRGBEncoding;
+                var pmrem = new THREE.PMREMGenerator(renderer);
+                scene.environment = pmrem.fromEquirectangular(envSrc).texture;
+                envSrc.dispose(); pmrem.dispose();
+            }
+        } catch (envErr) { /* 不支持就算了，场景照旧 */ }
+
         function resize() {
             var w = window.innerWidth, h = window.innerHeight;
             camera.aspect = w / h;
@@ -658,6 +689,79 @@
                 g.stroke();
             }
         });
+
+        /* ---------- 让现有贴图长出「手感」：法线 + 粗糙度 ---------- */
+        // 贴图里本来就有砖缝、木纹、漆面脏点，把明暗当高度算出法线，
+        // 再按明暗推一张粗糙度 —— 不改用外部图片，也不改原来的画法
+        function deriveMaps(src, opt) {
+            opt = opt || {};
+            var cv = src.image, w = cv.width, h = cv.height;
+            var sd = cv.getContext('2d').getImageData(0, 0, w, h).data;
+            var lum = new Float32Array(w * h);
+            for (var i = 0, q = 0; i < w * h; i++, q += 4)
+                lum[i] = (sd[q] * .299 + sd[q + 1] * .587 + sd[q + 2] * .114) / 255;
+            function L(x, y) {                       // 贴图是平铺的，边缘要接得上
+                if (x < 0) x += w; else if (x >= w) x -= w;
+                if (y < 0) y += h; else if (y >= h) y -= h;
+                return lum[y * w + x];
+            }
+            var s = opt.strength || 2.2;
+            var cn = document.createElement('canvas'); cn.width = w; cn.height = h;
+            var dn = cn.getContext('2d').createImageData(w, h), D = dn.data;
+            for (var yy = 0; yy < h; yy++) for (var xx = 0; xx < w; xx++) {
+                var gx = (L(xx + 1, yy) - L(xx - 1, yy)) * s;
+                var gy = (L(xx, yy + 1) - L(xx, yy - 1)) * s;
+                var iv = 1 / Math.sqrt(gx * gx + gy * gy + 1), k = (yy * w + xx) * 4;
+                D[k] = (gx * iv * .5 + .5) * 255;
+                D[k + 1] = (gy * iv * .5 + .5) * 255;
+                D[k + 2] = (iv * .5 + .5) * 255;
+                D[k + 3] = 255;
+            }
+            cn.getContext('2d').putImageData(dn, 0, 0);
+            var base = opt.rough === undefined ? .8 : opt.rough;
+            var amp = opt.roughAmp === undefined ? .25 : opt.roughAmp;
+            var cr = document.createElement('canvas'); cr.width = w; cr.height = h;
+            var dr = cr.getContext('2d').createImageData(w, h), R = dr.data;
+            for (var m = 0; m < w * h; m++) {        // 暗的地方更糙：缝里、纹理里
+                var v = Math.max(0, Math.min(1, base + (lum[m] - .5) * amp)) * 255, n = m * 4;
+                R[n] = R[n + 1] = R[n + 2] = v; R[n + 3] = 255;
+            }
+            cr.getContext('2d').putImageData(dr, 0, 0);
+            function same(t) {                       // 法线/粗糙度是数据贴图，按线性解释，别当 sRGB
+                t.wrapS = t.wrapT = THREE.RepeatWrapping;
+                if (src.repeat) t.repeat.copy(src.repeat);
+                t.anisotropy = 8;
+                return t;
+            }
+            return { normal: same(new THREE.CanvasTexture(cn)), rough: same(new THREE.CanvasTexture(cr)) };
+        }
+
+        // 大面积的三兄弟先有起伏：地板砖缝 / 墙面涂料 / 桌面木纹
+        var floorMaps = deriveMaps(floorTex, { strength: 2.6, rough: .80, roughAmp: -.32 });
+        var wallMaps = deriveMaps(wallTex, { strength: 1.3, rough: .95, roughAmp: .08 });
+        var woodMaps = deriveMaps(woodTex, { strength: 2.4, rough: .62, roughAmp: -.30 });
+        var woodTopMaps = deriveMaps(woodTopTex, { strength: 2.0, rough: .50, roughAmp: -.28 });
+
+        // 拉丝金属：把手、锁、柜门那一套（原来是个灰块，太像塑料）
+        var steelTex = CT(256, 256, function (g, w, h) {
+            g.fillStyle = '#8a9299'; g.fillRect(0, 0, w, h);
+            for (var i = 0; i < 900; i++) {
+                g.globalAlpha = .05 + Math.random() * .12;
+                g.strokeStyle = Math.random() > .5 ? '#c6ced5' : '#5a6268';
+                g.lineWidth = Math.random() < .8 ? 1 : 2;
+                var y = Math.random() * h;
+                g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+            }
+            for (var j = 0; j < 60; j++) {            // 手摸出来的污渍
+                g.globalAlpha = .04 + Math.random() * .05;
+                g.fillStyle = '#3b4147';
+                g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 3 + Math.random() * 9, 0, Math.PI * 2); g.fill();
+            }
+            g.globalAlpha = 1;
+        });
+        steelTex.wrapS = steelTex.wrapT = THREE.RepeatWrapping;
+        steelTex.repeat.set(2, 2);
+        var steelMaps = deriveMaps(steelTex, { strength: 1.1, rough: .40, roughAmp: -.20 });
 
         // 窗外：放学后的校园，只剩轮廓
         var viewTex = CT(1024, 512, function (g, w, h) {
@@ -916,17 +1020,32 @@
 
         /* ---------- 材质 ---------- */
         var MAT = {
-            floor: new THREE.MeshStandardMaterial({ map: floorTex, roughness: .82, metalness: .02 }),
-            wall: new THREE.MeshStandardMaterial({ map: wallTex, color: 0xf0ece4, roughness: .96 }),
+            floor: new THREE.MeshStandardMaterial({
+                map: floorTex, normalMap: floorMaps.normal, roughnessMap: floorMaps.rough,
+                roughness: 1, metalness: .02, normalScale: new THREE.Vector2(.9, .9)
+            }),
+            wall: new THREE.MeshStandardMaterial({
+                map: wallTex, color: 0xf0ece4, normalMap: wallMaps.normal, roughnessMap: wallMaps.rough,
+                roughness: 1, normalScale: new THREE.Vector2(.45, .45)
+            }),
             ceil: std(0xf7f7f5, .95),
-            wood: new THREE.MeshStandardMaterial({ map: woodTex, roughness: .72 }),
-            woodTop: new THREE.MeshStandardMaterial({ map: woodTopTex, roughness: .6 }),
+            wood: new THREE.MeshStandardMaterial({
+                map: woodTex, normalMap: woodMaps.normal, roughnessMap: woodMaps.rough,
+                roughness: 1, normalScale: new THREE.Vector2(.7, .7)
+            }),
+            woodTop: new THREE.MeshStandardMaterial({
+                map: woodTopTex, normalMap: woodTopMaps.normal, roughnessMap: woodTopMaps.rough,
+                roughness: 1, normalScale: new THREE.Vector2(.6, .6)
+            }),
             woodDark: std(0x7d5a3c, .8),
             white: std(0xf4f4f2, .7),
             grey: std(0x9aa0a6, .6, .3),
             dark: std(0x2b3037, .55, .35),
             black: std(0x1a1d21, .5, .2),
-            metal: std(0x7d858c, .35, .75),
+            metal: new THREE.MeshStandardMaterial({
+                color: 0x8f979d, map: steelTex, normalMap: steelMaps.normal, roughnessMap: steelMaps.rough,
+                roughness: 1, metalness: .78, envMapIntensity: 1.15
+            }),
             red: std(0xb03a2e, .7),
             green: std(0x4f7f43, .8),
             blue: std(0x2f6fa8, .7),
